@@ -89,6 +89,7 @@ var allCmds = &commander.Commander{
 		// Cluster setup.
 		initCmd,
 		addNodesCmd,
+		stopCmd,
 
 		// Status commands.
 		statusCmd,

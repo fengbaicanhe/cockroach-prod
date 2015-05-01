@@ -32,7 +32,7 @@ import (
 
 var addNodesCmd = &commander.Command{
 	UsageLine: "add-nodes N",
-	Short:     "add new nodes\n",
+	Short:     "add new nodes",
 	Long: `
 Add N new nodes to an existing cluster
 `,

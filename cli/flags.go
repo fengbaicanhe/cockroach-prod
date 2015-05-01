@@ -28,8 +28,6 @@ func initFlags(ctx *base.Context) {
 	flag.StringVar(&ctx.Certs, "certs", ctx.Certs, "certificates directory. Generated CA and node "+
 		"certs and keys are stored there.")
 
-	flag.BoolVar(&ctx.DryRun, "dry-run", ctx.DryRun, "print out mutating actions, don't perform them.")
-
 	flag.Int64Var(&ctx.Port, "port", ctx.Port, "cockroach node and load balancer port.")
 
 	// TODO(marc): this may take a "cloud platform" attribute (eg: aws:<region> or gce:<region>).

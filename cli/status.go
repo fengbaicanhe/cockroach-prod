@@ -23,12 +23,12 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"code.google.com/p/go-commander"
 
 	"github.com/cockroachdb/cockroach-prod/docker"
 	"github.com/cockroachdb/cockroach/util/log"
-	"github.com/ghemawat/stream"
 )
 
 var statusCmd = &commander.Command{
@@ -57,10 +57,11 @@ func runStatus(cmd *commander.Command, args []string) {
 
 	// Print docker-machine status.
 	fmt.Println("######## docker-machine ########")
-	err := stream.Run(
-		stream.Command("docker-machine", "ls"),
-		stream.WriteLines(os.Stdout),
-	)
+	c := exec.Command("docker-machine", "ls")
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
+	err := c.Run()
+
 	if err != nil {
 		log.Error(err)
 	}

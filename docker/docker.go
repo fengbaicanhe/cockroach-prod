@@ -27,7 +27,6 @@ import (
 	"github.com/cockroachdb/cockroach-prod/drivers"
 	"github.com/cockroachdb/cockroach/util"
 	"github.com/cockroachdb/cockroach/util/log"
-	"github.com/ghemawat/stream"
 )
 
 const (
@@ -36,17 +35,15 @@ const (
 
 // CheckDocker verifies that docker-machine is installed and runnable.
 func CheckDocker() error {
-	out, err := stream.Contents(stream.Command("docker", "-v"))
+	cmd := exec.Command("docker", "-v")
+	cmd.Stderr = os.Stderr
+	out, err := cmd.Output()
 	if err != nil {
 		return err
 	}
-	if out == nil || len(out) != 1 {
+	if !strings.HasPrefix(string(out), dockerVersionStringPrefix) {
 		return util.Errorf("bad output %v for docker -v, expected string prefix %q",
-			out, dockerVersionStringPrefix)
-	}
-	if !strings.HasPrefix(out[0], dockerVersionStringPrefix) {
-		return util.Errorf("bad output %v for docker -v, expected string prefix %q",
-			out, dockerVersionStringPrefix)
+			string(out), dockerVersionStringPrefix)
 	}
 	return nil
 }
@@ -84,7 +81,6 @@ func RunDockerStart(context *base.Context, nodeName string, settings drivers.Nod
 	args = append(args,
 		"run",
 		"-d",
-		"--rm",
 		"-v", fmt.Sprintf("%s:/data", settings.DataDir()),
 		"-p", fmt.Sprintf("%d:%d", context.Port, context.Port),
 		"--net", "host",

@@ -50,17 +50,15 @@ func MakeNodeName(id int) string {
 // CheckDockerMachine verifies that docker-machine is installed and
 // runnable.
 func CheckDockerMachine() error {
-	out, err := stream.Contents(stream.Command(dockerMachineBinary, "-v"))
+	cmd := exec.Command(dockerMachineBinary, "-v")
+	cmd.Stderr = os.Stderr
+	out, err := cmd.Output()
 	if err != nil {
 		return err
 	}
-	if out == nil || len(out) != 1 {
+	if !strings.HasPrefix(string(out), dockerMachineVersionStringPrefix) {
 		return util.Errorf("bad output %v for docker-machine -v, expected string prefix %q",
-			out, dockerMachineVersionStringPrefix)
-	}
-	if !strings.HasPrefix(out[0], dockerMachineVersionStringPrefix) {
-		return util.Errorf("bad output %v for docker-machine -v, expected string prefix %q",
-			out, dockerMachineVersionStringPrefix)
+			string(out), dockerMachineVersionStringPrefix)
 	}
 	return nil
 }
@@ -132,11 +130,6 @@ func CreateMachine(driver drivers.Driver, name string) error {
 	args = append(args, name)
 
 	log.Infof("running: %s %s", dockerMachineBinary, strings.Join(args, " "))
-	if driver.Context().DryRun {
-		log.Info("dry-run mode: not creating machine")
-		return nil
-	}
-
 	cmd := exec.Command(dockerMachineBinary, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

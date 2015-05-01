@@ -20,7 +20,6 @@ package base
 // Base context defaults.
 const (
 	defaultCerts  = "certs"
-	defaultDryRun = true
 	defaultPort   = 8080
 	defaultRegion = "aws:us-east-1"
 )
@@ -29,8 +28,6 @@ const (
 type Context struct {
 	// Certificates directory.
 	Certs string
-	// DryRun mode.
-	DryRun bool
 	// Port for cockroach nodes to listen on.
 	Port int64
 	// Region to run in.
@@ -47,7 +44,6 @@ func NewContext() *Context {
 // InitDefaults sets up the default values for a context.
 func (ctx *Context) InitDefaults() {
 	ctx.Certs = defaultCerts
-	ctx.DryRun = defaultDryRun
 	ctx.Port = defaultPort
 	ctx.Region = defaultRegion
 }

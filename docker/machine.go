@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/cockroachdb/cockroach-prod/drivers"
@@ -39,7 +40,7 @@ const (
 )
 
 var (
-	cockroachNodeRegexp = regexp.MustCompile(`^cockroach-[0-9]+$`)
+	cockroachNodeRegexp = regexp.MustCompile(`^cockroach-([0-9]+)$`)
 )
 
 // MakeNodeName generates a cockroach node name for the given ID.
@@ -83,6 +84,26 @@ func ListCockroachNodes() ([]string, error) {
 		}
 	}
 	return ret, nil
+}
+
+// GetLargestNodeIndex takes a list of node names and returns the largest
+// node index seen. Returns 0 if no nodes are passed. Fails on parsing errors.
+func GetLargestNodeIndex(nodes []string) (int, error) {
+	var largest int
+	for _, nodeName := range nodes {
+		match := cockroachNodeRegexp.FindStringSubmatch(nodeName)
+		if match == nil || len(match) != 2 {
+			return -1, util.Errorf("invalid cockroach node name: %s", nodeName)
+		}
+		index, err := strconv.Atoi(match[1])
+		if err != nil {
+			return -1, util.Errorf("invalid cockroach node name: %s", nodeName)
+		}
+		if index > largest {
+			largest = index
+		}
+	}
+	return largest, nil
 }
 
 // GetMachineConfig gets the machine config from docker-machine.

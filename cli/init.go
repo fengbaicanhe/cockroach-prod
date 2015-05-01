@@ -30,7 +30,7 @@ import (
 
 var initCmd = &commander.Command{
 	UsageLine: "init",
-	Short:     "initialize a cockroach cluster\n",
+	Short:     "initialize a cockroach cluster",
 	Long: `
 Initialize a cockroach cluster.
 `,
@@ -100,6 +100,7 @@ func runInit(cmd *commander.Command, args []string) {
 	err = docker.RunDockerInit(Context, nodeName, nodeDriverSettings)
 	if err != nil {
 		log.Errorf("could not initialize first cockroach node %s: %v", nodeName, err)
+		return
 	}
 
 	// Start the cockroach node.

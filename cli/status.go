@@ -56,6 +56,7 @@ func runStatus(cmd *commander.Command, args []string) {
 	// Print docker-machine status.
 	fmt.Println("######## docker-machine ########")
 	c := exec.Command("docker-machine", "ls")
+	c.Stdin = os.Stdin
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	err := c.Run()

@@ -184,7 +184,7 @@ func (a *Amazon) AddNode(name string, config interface{}) error {
 
 // StartNode adds the node to the load balancer.
 // ELB takes forever checking a stopped and started node,
-// so we have to re-register the node with the load balancer.
+// so we have to remove it at stopping time, and re-register it start time.
 func (a *Amazon) StartNode(name string, config interface{}) error {
 	nodeInfo, err := ParseDockerMachineConfig(config)
 	if err != nil {
@@ -199,9 +199,9 @@ func (a *Amazon) StartNode(name string, config interface{}) error {
 	return nil
 }
 
-// StopNode adds the node to the load balancer.
+// StopNode removes the node from the load balancer.
 // ELB takes forever checking a stopped and started node,
-// so we have to re-register the node with the load balancer.
+// so we have to remove it at stopping time, and re-register it start time.
 func (a *Amazon) StopNode(name string, config interface{}) error {
 	nodeInfo, err := ParseDockerMachineConfig(config)
 	if err != nil {

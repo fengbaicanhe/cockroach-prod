@@ -15,8 +15,6 @@
 //
 // Author: Marc Berhault (marc@cockroachlabs.com)
 
-// The AWS library needs existing credentials.
-// See "Configuring Credentials" at: https://github.com/awslabs/aws-sdk-go
 package cli
 
 import (
@@ -58,6 +56,7 @@ func runStatus(cmd *commander.Command, args []string) {
 	// Print docker-machine status.
 	fmt.Println("######## docker-machine ########")
 	c := exec.Command("docker-machine", "ls")
+	c.Stdin = os.Stdin
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	err := c.Run()

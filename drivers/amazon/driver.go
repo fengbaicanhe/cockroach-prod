@@ -177,8 +177,15 @@ func (a *Amazon) ProcessFirstNode(name string, config interface{}) error {
 }
 
 // AddNode runs any steps needed to add a node (any node, not just the first one).
-// This just adds the node to the load balancer.
+// This just adds the node to the load balancer, so for now, call StartNode.
 func (a *Amazon) AddNode(name string, config interface{}) error {
+	return a.StartNode(name, config)
+}
+
+// StartNode adds the node to the load balancer.
+// ELB takes forever checking a stopped and started node,
+// so we have to remove it at stopping time, and re-register it start time.
+func (a *Amazon) StartNode(name string, config interface{}) error {
 	nodeInfo, err := ParseDockerMachineConfig(config)
 	if err != nil {
 		return err
@@ -188,6 +195,23 @@ func (a *Amazon) AddNode(name string, config interface{}) error {
 	err = AddNodeToELB(a.region, nodeInfo)
 	if err != nil {
 		return util.Errorf("failed to add node %+v to load balancer: %v", nodeInfo, err)
+	}
+	return nil
+}
+
+// StopNode removes the node from the load balancer.
+// ELB takes forever checking a stopped and started node,
+// so we have to remove it at stopping time, and re-register it start time.
+func (a *Amazon) StopNode(name string, config interface{}) error {
+	nodeInfo, err := ParseDockerMachineConfig(config)
+	if err != nil {
+		return err
+	}
+
+	log.Infof("removing node %+v from load balancer", nodeInfo)
+	err = RemoveNodeFromELB(a.region, nodeInfo)
+	if err != nil {
+		return util.Errorf("failed to remove node %+v from load balancer: %v", nodeInfo, err)
 	}
 	return nil
 }

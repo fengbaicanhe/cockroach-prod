@@ -49,6 +49,14 @@ type Driver interface {
 	// AddNode runs any steps needed for new nodes (not just the first one).
 	// This takes the unmarshalled json config and node name.
 	AddNode(name string, config interface{}) error
+
+	// StartNode runs any steps needed when starting an existing node.
+	// This takes the unmarshalled json config and node name.
+	StartNode(name string, config interface{}) error
+
+	// StopNode runs any steps needed when stopping a node.
+	// This takes the unmarshalled json config and node name.
+	StopNode(name string, config interface{}) error
 }
 
 // NodeSettings is a set of node parameters needed outside the driver.

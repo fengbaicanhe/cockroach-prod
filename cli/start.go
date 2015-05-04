@@ -26,17 +26,17 @@ import (
 	"github.com/cockroachdb/cockroach/util/log"
 )
 
-var stopCmd = &commander.Command{
-	UsageLine: "stop",
-	Short:     "stop all nodes\n",
+var startCmd = &commander.Command{
+	UsageLine: "start",
+	Short:     "start all nodes",
 	Long: `
-Stop all nodes. This stops the actual cloud instances.
+Start all nodes. They must have been previously added and stopped.
 `,
-	Run:  runStop,
+	Run:  runStart,
 	Flag: *flag.CommandLine,
 }
 
-func runStop(cmd *commander.Command, args []string) {
+func runStart(cmd *commander.Command, args []string) {
 	driver, err := NewDriver(Context)
 	if err != nil {
 		log.Errorf("could not create driver: %v", err)
@@ -49,7 +49,7 @@ func runStop(cmd *commander.Command, args []string) {
 		return
 	}
 
-	// TODO(marc): only get nodes in state "Running".
+	// TODO(marc): only get nodes in state "Stopped".
 	nodes, err := docker.ListCockroachNodes()
 	if err != nil {
 		log.Errorf("failed to get list of existing cockroach nodes: %v", err)
@@ -61,6 +61,12 @@ func runStop(cmd *commander.Command, args []string) {
 	}
 
 	for _, nodeName := range nodes {
+		// Start machine.
+		err = docker.StartMachine(nodeName)
+		if err != nil {
+			log.Errorf("could not start machine %s: %v", nodeName, err)
+		}
+
 		// Lookup node info.
 		nodeConfig, err := docker.GetMachineConfig(nodeName)
 		if err != nil {
@@ -68,17 +74,24 @@ func runStop(cmd *commander.Command, args []string) {
 			return
 		}
 
-		// Do "stop node" logic.
-		err = driver.StopNode(nodeName, nodeConfig)
+		// Do "start node" logic.
+		err = driver.StartNode(nodeName, nodeConfig)
 		if err != nil {
-			log.Errorf("could not run StopNode steps for %s: %v", nodeName, err)
+			log.Errorf("could not run StartNode steps for %s: %v", nodeName, err)
 			return
 		}
 
-		// Stop the machine.
-		err = docker.StopMachine(nodeName)
+		// Initialize cockroach node.
+		nodeDriverSettings, err := driver.GetNodeSettings(nodeName, nodeConfig)
 		if err != nil {
-			log.Errorf("could not stop machine %s: %v", nodeName, err)
+			log.Errorf("could not determine node settings for %s: %v", nodeName, err)
+			return
+		}
+
+		// Start the cockroach node.
+		err = docker.RunDockerStart(Context, nodeName, nodeDriverSettings)
+		if err != nil {
+			log.Errorf("could not start cockroach node %s: %v", nodeName, err)
 		}
 	}
 }

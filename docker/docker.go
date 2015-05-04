@@ -36,6 +36,7 @@ const (
 // CheckDocker verifies that docker-machine is installed and runnable.
 func CheckDocker() error {
 	cmd := exec.Command("docker", "-v")
+	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
 	if err != nil {
@@ -66,6 +67,7 @@ func RunDockerInit(context *base.Context, nodeName string, settings drivers.Node
 	)
 	log.Infof("running: docker %s", strings.Join(args, " "))
 	cmd := exec.Command("docker", args...)
+	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -93,6 +95,7 @@ func RunDockerStart(context *base.Context, nodeName string, settings drivers.Nod
 	)
 	log.Infof("running: docker %s", strings.Join(args, " "))
 	cmd := exec.Command("docker", args...)
+	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()

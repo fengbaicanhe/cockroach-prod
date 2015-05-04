@@ -52,6 +52,7 @@ func MakeNodeName(id int) string {
 // runnable.
 func CheckDockerMachine() error {
 	cmd := exec.Command(dockerMachineBinary, "-v")
+	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
 	if err != nil {
@@ -152,15 +153,27 @@ func CreateMachine(driver drivers.Driver, name string) error {
 
 	log.Infof("running: %s %s", dockerMachineBinary, strings.Join(args, " "))
 	cmd := exec.Command(dockerMachineBinary, args...)
+	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
-// StopMachine invokes docker-machine stop on the given machine name.
+// StartMachine invokes "docker-machine start" on the given machine name.
+func StartMachine(name string) error {
+	log.Infof("starting docker machine %s", name)
+	cmd := exec.Command(dockerMachineBinary, "start", name)
+	cmd.Stdin = os.Stdin
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	return cmd.Run()
+}
+
+// StopMachine invokes "docker-machine stop" on the given machine name.
 func StopMachine(name string) error {
 	log.Infof("stopping docker machine %s", name)
 	cmd := exec.Command(dockerMachineBinary, "stop", name)
+	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	return cmd.Run()

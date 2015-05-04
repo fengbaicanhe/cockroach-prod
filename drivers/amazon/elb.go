@@ -95,3 +95,14 @@ func AddNodeToELB(region string, info *NodeInfo) error {
 	})
 	return err
 }
+
+// RemoveNodeFromELB removes the specified node from the cockroach load balancer.
+// This can only succeed if the cockroach ELB exists.
+func RemoveNodeFromELB(region string, info *NodeInfo) error {
+	elbService := elb.New(&aws.Config{Region: region})
+	_, err := elbService.DeregisterInstancesFromLoadBalancer(&elb.DeregisterInstancesFromLoadBalancerInput{
+		LoadBalancerName: aws.String(cockroachELBName),
+		Instances:        []*elb.Instance{{InstanceID: aws.String(info.instanceID)}},
+	})
+	return err
+}

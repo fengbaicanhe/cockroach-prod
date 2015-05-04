@@ -15,8 +15,6 @@
 //
 // Author: Marc Berhault (marc@cockroachlabs.com)
 
-// The AWS library needs existing credentials.
-// See "Configuring Credentials" at: https://github.com/awslabs/aws-sdk-go
 package cli
 
 import (

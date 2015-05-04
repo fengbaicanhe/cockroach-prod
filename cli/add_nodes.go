@@ -15,8 +15,6 @@
 //
 // Author: Marc Berhault (marc@cockroachlabs.com)
 
-// The AWS library needs existing credentials.
-// See "Configuring Credentials" at: https://github.com/awslabs/aws-sdk-go
 package cli
 
 import (
@@ -32,7 +30,7 @@ import (
 
 var addNodesCmd = &commander.Command{
 	UsageLine: "add-nodes N",
-	Short:     "add new nodes",
+	Short:     "add new nodes\n",
 	Long: `
 Add N new nodes to an existing cluster
 `,

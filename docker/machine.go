@@ -157,7 +157,16 @@ func CreateMachine(driver drivers.Driver, name string) error {
 	return cmd.Run()
 }
 
-// StopMachine invokes docker-machine stop on the given machine name.
+// StartMachine invokes "docker-machine start" on the given machine name.
+func StartMachine(name string) error {
+	log.Infof("starting docker machine %s", name)
+	cmd := exec.Command(dockerMachineBinary, "start", name)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	return cmd.Run()
+}
+
+// StopMachine invokes "docker-machine stop" on the given machine name.
 func StopMachine(name string) error {
 	log.Infof("stopping docker machine %s", name)
 	cmd := exec.Command(dockerMachineBinary, "stop", name)

@@ -19,6 +19,26 @@ package drivers
 
 import "github.com/cockroachdb/cockroach-prod/base"
 
+// HostConfig describes the docker-machine host config.
+// Driver is the driver-specific config.
+// We only specify the fields we currently use. For the full list, see:
+// https://github.com/docker/machine/blob/master/libmachine/host.go
+type HostConfig struct {
+	DriverName string
+	Driver     HostDriverConfig
+}
+
+// HostDriverConfig describes the docker-machine host driver configs.
+// It is implemented by each driver.
+type HostDriverConfig interface {
+	// DataDir is the directory used as the data directory.
+	DataDir() string
+	// IPAddress is the node address cockroach should bind to.
+	IPAddress() string
+	// GossipAddress is the address to reach the gossip network.
+	GossipAddress() string
+}
+
 // Driver is the interface for all drivers.
 type Driver interface {
 	// Context returns the base context.
@@ -38,33 +58,18 @@ type Driver interface {
 	// PrintStatus asks the driver to print some basic status to stdout.
 	PrintStatus()
 
-	// GetNodeSettings takes a node name and unmarshalled json config
-	// and returns a filled in driver.NodeSettings.
-	GetNodeSettings(name string, config interface{}) (NodeSettings, error)
+	// GetNodeConfig takes a node name and reads its docker-machine config.
+	GetNodeConfig(name string) (*HostConfig, error)
 
-	// ProcessFirstNode runs any steps needed after the first node was created.
-	// This takes the unmarshalled json config and node name.
-	ProcessFirstNode(name string, config interface{}) error
+	// AfterFirstNode runs any steps needed after the first node was created.
+	AfterFirstNode() error
 
 	// AddNode runs any steps needed for new nodes (not just the first one).
-	// This takes the unmarshalled json config and node name.
-	AddNode(name string, config interface{}) error
+	AddNode(name string, config *HostConfig) error
 
 	// StartNode runs any steps needed when starting an existing node.
-	// This takes the unmarshalled json config and node name.
-	StartNode(name string, config interface{}) error
+	StartNode(name string, config *HostConfig) error
 
 	// StopNode runs any steps needed when stopping a node.
-	// This takes the unmarshalled json config and node name.
-	StopNode(name string, config interface{}) error
-}
-
-// NodeSettings is a set of node parameters needed outside the driver.
-type NodeSettings interface {
-	// DataDir is the directory used as the data directory.
-	DataDir() string
-	// IPAddress is the node address cockroach should bind to.
-	IPAddress() string
-	// GossipAddress is the address to reach the gossip network.
-	GossipAddress() string
+	StopNode(name string, config *HostConfig) error
 }

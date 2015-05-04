@@ -107,21 +107,17 @@ func GetLargestNodeIndex(nodes []string) (int, error) {
 	return largest, nil
 }
 
-// GetMachineConfig gets the machine config from docker-machine.
-// It returns unmarshalled json.
-func GetMachineConfig(name string) (interface{}, error) {
+// GetHostConfig gets the machine config from docker-machine.
+// It takes an initialized driver.HostConfig struct with the Driver
+// field initialized to the driver-specific type.
+// The passed-in object is filled in with the contents of the config.
+func GetHostConfig(name string, config *drivers.HostConfig) error {
 	contents, err := stream.Contents(stream.Command(dockerMachineBinary, "inspect", name))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	var m interface{}
-	err = json.Unmarshal([]byte(strings.Join(contents, "\n")), &m)
-	if err != nil {
-		return nil, err
-	}
-
-	return m, nil
+	return json.Unmarshal([]byte(strings.Join(contents, "\n")), config)
 }
 
 // GetDockerFlags returns the list of flags we need to pass to docker to

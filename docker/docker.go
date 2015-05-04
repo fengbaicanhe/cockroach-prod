@@ -23,7 +23,6 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/cockroachdb/cockroach-prod/base"
 	"github.com/cockroachdb/cockroach-prod/drivers"
 	"github.com/cockroachdb/cockroach/util"
 	"github.com/cockroachdb/cockroach/util/log"
@@ -50,7 +49,7 @@ func CheckDocker() error {
 }
 
 // RunDockerInit initializes the first node.
-func RunDockerInit(context *base.Context, nodeName string, settings drivers.NodeSettings) error {
+func RunDockerInit(driver drivers.Driver, nodeName string, settings *drivers.HostConfig) error {
 	dockerArgs, err := GetDockerFlags(nodeName)
 	if err != nil {
 		return err
@@ -59,7 +58,7 @@ func RunDockerInit(context *base.Context, nodeName string, settings drivers.Node
 	args = append(args,
 		"run",
 		"--rm",
-		"-v", fmt.Sprintf("%s:/data", settings.DataDir()),
+		"-v", fmt.Sprintf("%s:/data", settings.Driver.DataDir()),
 		"cockroachdb/cockroach",
 		"init",
 		"-insecure",
@@ -74,24 +73,25 @@ func RunDockerInit(context *base.Context, nodeName string, settings drivers.Node
 }
 
 // RunDockerStart starts the cockroach binary.
-func RunDockerStart(context *base.Context, nodeName string, settings drivers.NodeSettings) error {
+func RunDockerStart(driver drivers.Driver, nodeName string, settings *drivers.HostConfig) error {
 	dockerArgs, err := GetDockerFlags(nodeName)
 	if err != nil {
 		return err
 	}
+	port := driver.Context().Port
 	args := dockerArgs
 	args = append(args,
 		"run",
 		"-d",
-		"-v", fmt.Sprintf("%s:/data", settings.DataDir()),
-		"-p", fmt.Sprintf("%d:%d", context.Port, context.Port),
+		"-v", fmt.Sprintf("%s:/data", settings.Driver.DataDir()),
+		"-p", fmt.Sprintf("%d:%d", port, port),
 		"--net", "host",
 		"cockroachdb/cockroach",
 		"start",
 		"-insecure",
 		"-stores", "ssd=/data",
-		"-addr", fmt.Sprintf("%s:%d", settings.IPAddress(), context.Port),
-		"-gossip", fmt.Sprintf("%s:%d", settings.GossipAddress(), context.Port),
+		"-addr", fmt.Sprintf("%s:%d", settings.Driver.IPAddress(), port),
+		"-gossip", fmt.Sprintf("%s:%d", settings.Driver.GossipAddress(), port),
 	)
 	log.Infof("running: docker %s", strings.Join(args, " "))
 	cmd := exec.Command("docker", args...)

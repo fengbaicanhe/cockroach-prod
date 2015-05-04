@@ -32,6 +32,7 @@ import (
 	commander "code.google.com/p/go-commander"
 )
 
+// Context contains basic configuration settings.
 var Context = base.NewContext()
 
 var listParamsCmd = &commander.Command{

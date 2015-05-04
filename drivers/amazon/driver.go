@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/cockroachdb/cockroach-prod/base"
+	"github.com/cockroachdb/cockroach-prod/docker"
 	"github.com/cockroachdb/cockroach-prod/drivers"
 	"github.com/cockroachdb/cockroach/util"
 	"github.com/cockroachdb/cockroach/util/log"
@@ -30,12 +31,15 @@ const (
 	dockerMachineDriverName = "amazonec2"
 	amazonDataDir           = "/home/ubuntu/data"
 	cockroachProtocol       = "tcp"
+	defaultZone             = "a"
 )
 
 // Amazon implements a driver for AWS.
+// This is not synchronized: be careful.
 type Amazon struct {
 	context *base.Context
 	region  string
+	zone    string
 
 	keyID string
 	key   string
@@ -43,24 +47,31 @@ type Amazon struct {
 	vpcID string
 }
 
-type NodeInfo struct {
-	instanceID          string
-	securityGroupID     string
-	privateIPAddress    string
-	zone                string
-	loadBalancerAddress string
+// HostConfig contains the amazon-specific fields of the docker-machine config.
+// Not all are specified, only those used here.
+type HostConfig struct {
+	InstanceID       string
+	SecurityGroupID  string
+	PrivateIPAddress string
+	Zone             string
+
+	// non docker-machine fields:
+	LoadBalancerAddress string `json:"-"`
 }
 
-func (n *NodeInfo) DataDir() string {
+// DataDir returns the data directory.
+func (cfg *HostConfig) DataDir() string {
 	return amazonDataDir
 }
 
-func (n *NodeInfo) IPAddress() string {
-	return n.privateIPAddress
+// IPAddress returns the IP address we will listen on.
+func (cfg *HostConfig) IPAddress() string {
+	return cfg.PrivateIPAddress
 }
 
-func (n *NodeInfo) GossipAddress() string {
-	return n.loadBalancerAddress
+// GossipAddress returns the address for the gossip network.
+func (cfg *HostConfig) GossipAddress() string {
+	return cfg.LoadBalancerAddress
 }
 
 // NewDriver returns an initialized Amazon driver.
@@ -69,6 +80,7 @@ func NewDriver(context *base.Context, region string) *Amazon {
 	return &Amazon{
 		context: context,
 		region:  region,
+		zone:    defaultZone,
 	}
 }
 
@@ -110,91 +122,90 @@ func (a *Amazon) DockerMachineCreateArgs() []string {
 		"--amazonec2-secret-key", a.key,
 		"--amazonec2-region", a.region,
 		"--amazonec2-vpc-id", a.vpcID,
+		"--amazonec2-zone", a.zone,
 	}
 }
 
 // PrintStatus prints the load balancer address to stdout.
+// Do not call the "getOrInit*" methods here, we only want to look things up.
 func (a *Amazon) PrintStatus() {
-	log.Infof("looking for load balancer")
-	elbDesc, err := FindCockroachELB(a.region)
-	if err != nil || elbDesc == nil {
-		log.Infof("could not find load balancer: %v", err)
-		return
+	fmt.Println("Region:", a.region)
+
+	dnsName, err := FindCockroachELB(a.region)
+	if err != nil {
+		fmt.Println("Load balancer: problem:", err)
+	} else if dnsName == "" {
+		fmt.Println("Load balancer: not found (you need to initialize the cluster)")
+	} else {
+		fmt.Println("Load balancer:", dnsName)
 	}
 
-	fmt.Printf("Load balancer: %s\n", *elbDesc.DNSName)
+	securityGroupID, err := FindSecurityGroup(a.region)
+	if err != nil {
+		fmt.Println("Security group: problem:", err)
+	} else if securityGroupID == "" {
+		fmt.Println("Security group: not found (you need to initialize the cluster)")
+	} else {
+		fmt.Println("Security group:", securityGroupID)
+	}
 }
 
-// GetNodeSettings takes a node name and unmarshalled json config
-// and returns a filled NodeInfo.
-func (a *Amazon) GetNodeSettings(name string, config interface{}) (drivers.NodeSettings, error) {
-	settings, err := ParseDockerMachineConfig(config)
+// GetNodeConfig takes a node name and reads its docker-machine config.
+// The LoadBalancerAddress is looked up and filled in.
+func (a *Amazon) GetNodeConfig(name string) (*drivers.HostConfig, error) {
+	hostConfig := &drivers.HostConfig{
+		Driver: &HostConfig{},
+	}
+
+	// Parse the config file.
+	err := docker.GetHostConfig(name, hostConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	elbDesc, err := FindCockroachELB(a.region)
-	if err != nil || elbDesc == nil {
+	// Add the load balancer address.
+	dnsName, err := FindCockroachELB(a.region)
+	if err != nil || dnsName == "" {
 		return nil, util.Errorf("could not find load balancer: %v", err)
 	}
-	settings.loadBalancerAddress = *elbDesc.DNSName
-	return settings, err
+	hostConfig.Driver.(*HostConfig).LoadBalancerAddress = dnsName
+
+	return hostConfig, err
 }
 
-// ProcessFirstNode runs any steps needed after the first node was created.
+// AfterFirstNode runs any steps needed after the first node was created.
 // This tweaks the security group to allow cockroach ports and creates
 // the load balancer.
-func (a *Amazon) ProcessFirstNode(name string, config interface{}) error {
-	nodeInfo, err := ParseDockerMachineConfig(config)
+func (a *Amazon) AfterFirstNode() error {
+	securityGroupID, err := FindSecurityGroup(a.region)
 	if err != nil {
 		return err
 	}
 
-	log.Infof("adding security group rule for node: %+v", nodeInfo)
-	err = AddCockroachSecurityGroupIngress(a.region, a.context.Port, nodeInfo)
+	log.Info("adding security group rule")
+	err = AddCockroachSecurityGroupIngress(a.region, a.context.Port, securityGroupID)
 	if err != nil {
-		return util.Errorf("failed to add security group rule for node %+v: %v", nodeInfo, err)
+		return util.Errorf("failed to add security group rule: %v", err)
 	}
 
-	log.Infof("looking for load balancer")
-	elbDesc, err := FindCockroachELB(a.region)
-	if err != nil {
-		return util.Errorf("failed to lookup existing load balancer for node %+v: %v", nodeInfo, err)
-	}
-
-	if elbDesc != nil {
-		log.Info("found load balancer")
-		return nil
-	}
-
-	log.Infof("no existing load balancer, creating one")
-	err = CreateCockroachELB(a.region, a.context.Port, nodeInfo)
-	if err != nil {
-		return util.Errorf("failed to create load balancer for node %+v: %v", nodeInfo, err)
-	}
-	log.Info("created load balancer")
-	return nil
+	_, err = FindOrCreateLoadBalancer(a.region, a.context.Port, a.zone, securityGroupID)
+	return err
 }
 
 // AddNode runs any steps needed to add a node (any node, not just the first one).
 // This just adds the node to the load balancer, so for now, call StartNode.
-func (a *Amazon) AddNode(name string, config interface{}) error {
+func (a *Amazon) AddNode(name string, config *drivers.HostConfig) error {
 	return a.StartNode(name, config)
 }
 
 // StartNode adds the node to the load balancer.
 // ELB takes forever checking a stopped and started node,
 // so we have to remove it at stopping time, and re-register it start time.
-func (a *Amazon) StartNode(name string, config interface{}) error {
-	nodeInfo, err := ParseDockerMachineConfig(config)
+func (a *Amazon) StartNode(name string, config *drivers.HostConfig) error {
+	log.Infof("adding node %s to load balancer", name)
+	err := AddNodeToELB(a.region, config.Driver.(*HostConfig).InstanceID)
 	if err != nil {
-		return err
-	}
-
-	log.Infof("adding node %+v to load balancer", nodeInfo)
-	err = AddNodeToELB(a.region, nodeInfo)
-	if err != nil {
-		return util.Errorf("failed to add node %+v to load balancer: %v", nodeInfo, err)
+		return util.Errorf("failed to add node %s (%+v) to load balancer: %v", name, config, err)
 	}
 	return nil
 }
@@ -202,16 +213,11 @@ func (a *Amazon) StartNode(name string, config interface{}) error {
 // StopNode removes the node from the load balancer.
 // ELB takes forever checking a stopped and started node,
 // so we have to remove it at stopping time, and re-register it start time.
-func (a *Amazon) StopNode(name string, config interface{}) error {
-	nodeInfo, err := ParseDockerMachineConfig(config)
+func (a *Amazon) StopNode(name string, config *drivers.HostConfig) error {
+	log.Infof("removing node %s from load balancer", name)
+	err := RemoveNodeFromELB(a.region, config.Driver.(*HostConfig).InstanceID)
 	if err != nil {
-		return err
-	}
-
-	log.Infof("removing node %+v from load balancer", nodeInfo)
-	err = RemoveNodeFromELB(a.region, nodeInfo)
-	if err != nil {
-		return util.Errorf("failed to remove node %+v from load balancer: %v", nodeInfo, err)
+		return util.Errorf("failed to remove node %s (%+v) from load balancer: %v", name, config, err)
 	}
 	return nil
 }

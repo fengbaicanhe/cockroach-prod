@@ -20,19 +20,41 @@ package amazon
 import (
 	"github.com/awslabs/aws-sdk-go/aws"
 	"github.com/awslabs/aws-sdk-go/service/ec2"
+	"github.com/cockroachdb/cockroach/util"
 )
 
 const (
+	securityGroupName             = "docker-machine"
 	allIPAddresses                = "0.0.0.0/0"
 	awsSecurityRuleDuplicateError = "InvalidPermission.Duplicate"
+	awsSecurityGroupNotFound      = "InvalidGroup.NotFound"
 )
+
+// FindSecurityGroup looks for the security group created by docker-machine.
+// We needs its ID for other EC2 tasks (eg: create load balancer).
+// Not finding the security group is an error.
+func FindSecurityGroup(region string) (string, error) {
+	ec2Service := ec2.New(&aws.Config{Region: region})
+	resp, err := ec2Service.DescribeSecurityGroups(&ec2.DescribeSecurityGroupsInput{
+		GroupNames: []*string{aws.String(securityGroupName)},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if len(resp.SecurityGroups) == 0 {
+		return "", util.Errorf("security group with name %q not found", securityGroupName)
+	}
+
+	return *resp.SecurityGroups[0].GroupID, nil
+}
 
 // AddCockroachSecurityGroupIngress takes in a nodeInfo and
 // adds the cockroach port ingress rules to the security group.
 // The To and From ports are set to 'cockroachPort'.
 // Duplicates are technically errors according to the AWS API, but we check for
 // the duplicate error code and return ok.
-func AddCockroachSecurityGroupIngress(region string, cockroachPort int64, node *NodeInfo) error {
+func AddCockroachSecurityGroupIngress(region string, cockroachPort int64, securityGroupID string) error {
 	ec2Service := ec2.New(&aws.Config{Region: region})
 
 	_, err := ec2Service.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
@@ -40,7 +62,7 @@ func AddCockroachSecurityGroupIngress(region string, cockroachPort int64, node *
 		FromPort:   aws.Long(cockroachPort),
 		ToPort:     aws.Long(cockroachPort),
 		IPProtocol: aws.String(cockroachProtocol),
-		GroupID:    aws.String(node.securityGroupID),
+		GroupID:    aws.String(securityGroupID),
 	})
 
 	if err != nil {

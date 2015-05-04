@@ -58,8 +58,8 @@ func CheckDockerMachine() error {
 		return err
 	}
 	if !strings.HasPrefix(string(out), dockerMachineVersionStringPrefix) {
-		return util.Errorf("bad output %v for docker-machine -v, expected string prefix %q",
-			string(out), dockerMachineVersionStringPrefix)
+		return util.Errorf("bad output %s for docker-machine -v, expected string prefix %q",
+			out, dockerMachineVersionStringPrefix)
 	}
 	return nil
 }
@@ -107,7 +107,7 @@ func GetLargestNodeIndex(nodes []string) (int, error) {
 }
 
 // GetMachineConfig gets the machine config from docker-machine.
-// It returns a generic interface.
+// It returns unmarshalled json.
 func GetMachineConfig(name string) (interface{}, error) {
 	contents, err := stream.Contents(stream.Command(dockerMachineBinary, "inspect", name))
 	if err != nil {

@@ -42,8 +42,8 @@ func CheckDocker() error {
 		return err
 	}
 	if !strings.HasPrefix(string(out), dockerVersionStringPrefix) {
-		return util.Errorf("bad output %v for docker -v, expected string prefix %q",
-			string(out), dockerVersionStringPrefix)
+		return util.Errorf("bad output %s for docker -v, expected string prefix %q",
+			out, dockerVersionStringPrefix)
 	}
 	return nil
 }

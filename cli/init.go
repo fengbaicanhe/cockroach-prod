@@ -23,7 +23,6 @@ import (
 	"flag"
 
 	"code.google.com/p/go-commander"
-
 	"github.com/cockroachdb/cockroach-prod/docker"
 	"github.com/cockroachdb/cockroach/util/log"
 )
@@ -32,7 +31,7 @@ var initCmd = &commander.Command{
 	UsageLine: "init",
 	Short:     "initialize a cockroach cluster",
 	Long: `
-Initialize a cockroach cluster.
+Initialize a cockroach cluster. This initializes and starts the first node.
 `,
 	Run:  runInit,
 	Flag: *flag.CommandLine,

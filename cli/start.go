@@ -68,7 +68,7 @@ func runStart(cmd *commander.Command, args []string) {
 		}
 
 		// Lookup node info.
-		nodeConfig, err := docker.GetMachineConfig(nodeName)
+		nodeConfig, err := driver.GetNodeConfig(nodeName)
 		if err != nil {
 			log.Errorf("could not get node config for %s: %v", nodeName, err)
 			return
@@ -81,15 +81,8 @@ func runStart(cmd *commander.Command, args []string) {
 			return
 		}
 
-		// Initialize cockroach node.
-		nodeDriverSettings, err := driver.GetNodeSettings(nodeName, nodeConfig)
-		if err != nil {
-			log.Errorf("could not determine node settings for %s: %v", nodeName, err)
-			return
-		}
-
 		// Start the cockroach node.
-		err = docker.RunDockerStart(Context, nodeName, nodeDriverSettings)
+		err = docker.RunDockerStart(driver, nodeName, nodeConfig)
 		if err != nil {
 			log.Errorf("could not start cockroach node %s: %v", nodeName, err)
 		}

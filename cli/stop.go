@@ -62,7 +62,7 @@ func runStop(cmd *commander.Command, args []string) {
 
 	for _, nodeName := range nodes {
 		// Lookup node info.
-		nodeConfig, err := docker.GetMachineConfig(nodeName)
+		nodeConfig, err := driver.GetNodeConfig(nodeName)
 		if err != nil {
 			log.Errorf("could not get node config for %s: %v", nodeName, err)
 			return

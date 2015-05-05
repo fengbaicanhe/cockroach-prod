@@ -59,6 +59,7 @@ func runAddNodes(cmd *commander.Command, args []string) {
 	}
 }
 
+// AddOneNode is a helper to add a single node. Called repeatedly.
 func AddOneNode() error {
 	driver, err := NewDriver(Context)
 	if err != nil {
@@ -92,7 +93,7 @@ func AddOneNode() error {
 	}
 
 	// Lookup node info.
-	nodeConfig, err := docker.GetMachineConfig(nodeName)
+	nodeConfig, err := driver.GetNodeConfig(nodeName)
 	if err != nil {
 		return util.Errorf("could not get node config for %s: %v", nodeName, err)
 	}
@@ -103,14 +104,8 @@ func AddOneNode() error {
 		return util.Errorf("could not run AddNode steps for %s: %v", nodeName, err)
 	}
 
-	// Initialize cockroach node.
-	nodeDriverSettings, err := driver.GetNodeSettings(nodeName, nodeConfig)
-	if err != nil {
-		return util.Errorf("could not determine node settings for %s: %v", nodeName, err)
-	}
-
 	// Start the cockroach node.
-	err = docker.RunDockerStart(Context, nodeName, nodeDriverSettings)
+	err = docker.RunDockerStart(driver, nodeName, nodeConfig)
 	if err != nil {
 		return util.Errorf("could not initialize first cockroach node %s: %v", nodeName, err)
 	}

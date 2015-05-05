@@ -59,6 +59,7 @@ func runInit(cmd *commander.Command, args []string) {
 	}
 
 	nodeName := docker.MakeNodeName(0)
+
 	// Create first node.
 	err = docker.CreateMachine(driver, nodeName)
 	if err != nil {
@@ -67,16 +68,16 @@ func runInit(cmd *commander.Command, args []string) {
 	}
 
 	// Lookup node info.
-	nodeConfig, err := docker.GetMachineConfig(nodeName)
+	nodeConfig, err := driver.GetNodeConfig(nodeName)
 	if err != nil {
 		log.Errorf("could not get node config for %s: %v", nodeName, err)
 		return
 	}
 
 	// Run driver steps after first-node creation.
-	err = driver.ProcessFirstNode(nodeName, nodeConfig)
+	err = driver.AfterFirstNode()
 	if err != nil {
-		log.Errorf("could not run ProcessFirstNode steps for %s: %v", nodeName, err)
+		log.Errorf("could not run AfterFirstNode steps for: %v", err)
 		return
 	}
 
@@ -88,20 +89,14 @@ func runInit(cmd *commander.Command, args []string) {
 	}
 
 	// Initialize cockroach node.
-	nodeDriverSettings, err := driver.GetNodeSettings(nodeName, nodeConfig)
-	if err != nil {
-		log.Errorf("could not determine node settings for %s: %v", nodeName, err)
-		return
-	}
-
-	err = docker.RunDockerInit(Context, nodeName, nodeDriverSettings)
+	err = docker.RunDockerInit(driver, nodeName, nodeConfig)
 	if err != nil {
 		log.Errorf("could not initialize first cockroach node %s: %v", nodeName, err)
 		return
 	}
 
 	// Start the cockroach node.
-	err = docker.RunDockerStart(Context, nodeName, nodeDriverSettings)
+	err = docker.RunDockerStart(driver, nodeName, nodeConfig)
 	if err != nil {
 		log.Errorf("could not initialize first cockroach node %s: %v", nodeName, err)
 	}

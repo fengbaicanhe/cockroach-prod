@@ -21,8 +21,10 @@ import (
 	"fmt"
 
 	"github.com/cockroachdb/cockroach-prod/base"
+	"github.com/cockroachdb/cockroach-prod/docker"
 	"github.com/cockroachdb/cockroach-prod/drivers"
 	"github.com/cockroachdb/cockroach/util"
+	"github.com/docker/machine/log"
 )
 
 const (
@@ -36,19 +38,24 @@ type Google struct {
 	project string
 }
 
-// TODO(marc): this is the old config setup. This need to change after the merge.
-type NodeInfo struct {
+// config contains the google-specific fields of the docker-machine config.
+// Not all are specified, only those used here.
+// Implements drivers.DriverConfig.
+type config struct {
 }
 
-func (n *NodeInfo) DataDir() string {
+// DataDir returns the data directory.
+func (cfg *config) DataDir() string {
 	return ""
 }
 
-func (n *NodeInfo) IPAddress() string {
+// IPAddress returns the IP address we will listen on.
+func (cfg *config) IPAddress() string {
 	return ""
 }
 
-func (n *NodeInfo) GossipAddress() string {
+// GossipAddress returns the address for the gossip network.
+func (cfg *config) GossipAddress() string {
 	return ""
 }
 
@@ -84,6 +91,7 @@ func (g *Google) Init() error {
 		return util.Errorf("invalid project %q: %v", g.project, err)
 	}
 
+	log.Infof("validated project name: %q", g.project)
 	// Return unimplemented for now so we don't proceed.
 	return util.Errorf("not implemented")
 }
@@ -103,28 +111,37 @@ func (g *Google) PrintStatus() {
 	fmt.Printf("Nothing yet")
 }
 
-// GetNodeSettings takes a node name and unmarshalled json config
-// and returns a filled NodeInfo.
-func (g *Google) GetNodeSettings(name string, config interface{}) (drivers.NodeSettings, error) {
-	return nil, util.Errorf("not implemented")
+// GetNodeConfig takes a node name and reads its docker-machine config.
+func (g *Google) GetNodeConfig(name string) (*drivers.HostConfig, error) {
+	cfg := &drivers.HostConfig{
+		Driver: &config{},
+	}
+
+	// Parse the config file.
+	err := docker.GetHostConfig(name, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg, err
 }
 
-// ProcessFirstNode runs any steps needed after the first node was created.
-func (g *Google) ProcessFirstNode(name string, config interface{}) error {
+// AfterFirstNode runs any steps needed after the first node was created.
+func (g *Google) AfterFirstNode() error {
 	return util.Errorf("not implemented")
 }
 
 // AddNode runs any steps needed to add a node (any node, not just the first one).
-func (g *Google) AddNode(name string, config interface{}) error {
+func (g *Google) AddNode(name string, cfg *drivers.HostConfig) error {
 	return util.Errorf("not implemented")
 }
 
 // StartNode adds the node to the load balancer.
-func (g *Google) StartNode(name string, config interface{}) error {
+func (g *Google) StartNode(name string, cfg *drivers.HostConfig) error {
 	return util.Errorf("not implemented")
 }
 
 // StopNode removes the node from the load balancer.
-func (g *Google) StopNode(name string, config interface{}) error {
+func (g *Google) StopNode(name string, cfg *drivers.HostConfig) error {
 	return util.Errorf("not implemented")
 }

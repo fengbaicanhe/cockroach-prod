@@ -25,10 +25,10 @@ import (
 
 // Base context defaults.
 const (
-	defaultCerts        = "certs"
-	defaultPort         = 8080
-	defaultRegion       = ""
-	defaultGCEProject   = ""
+	defaultCerts  = "certs"
+	defaultPort   = 8080
+	defaultRegion = ""
+	// GCEProject defaults to "cockroach-${USER}"
 	defaultGCETokenPath = "${HOME}/.docker/machine/gce_token"
 )
 
@@ -60,14 +60,12 @@ func (ctx *Context) InitDefaults() {
 	ctx.Certs = defaultCerts
 	ctx.Port = defaultPort
 	ctx.Region = defaultRegion
-	if len(defaultGCEProject) == 0 {
-		user, err := user.Current()
-		if err != nil {
-			log.Fatalf("failed to lookup current username: %v", err)
-		}
-		ctx.GCEProject = "cockroach-" + user.Username
-	} else {
-		ctx.GCEProject = defaultGCEProject
+
+	user, err := user.Current()
+	if err != nil {
+		log.Fatalf("failed to lookup current username: %v", err)
 	}
+	ctx.GCEProject = "cockroach-" + user.Username
+
 	ctx.GCETokenPath = os.ExpandEnv(defaultGCETokenPath)
 }

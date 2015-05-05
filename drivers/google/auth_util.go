@@ -51,6 +51,12 @@ import (
 	compute "google.golang.org/api/compute/v1"
 )
 
+// OAuth logic. This initializes a GCE Service with a OAuth token.
+// If the token (in Gob format) exists at 'authTokenPath', load it.
+// Otherwise, redirect to the Google consent screen to get a code,
+// generate a token from it, and save it in 'authTokenPath'.
+//
+// The token file format must be the same as that used by docker-machine.
 const (
 	authURL  = "https://accounts.google.com/o/oauth2/auth"
 	tokenURL = "https://accounts.google.com/o/oauth2/token"

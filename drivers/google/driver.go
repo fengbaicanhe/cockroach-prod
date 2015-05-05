@@ -27,19 +27,16 @@ import (
 
 const (
 	dockerMachineDriverName = "google"
-	cockroachClientID       = "962032490974-5avmqm15uklkgus98c7f862dk23u5mdk.apps.googleusercontent.com"
-	cockroachClientSecret   = "SSytmGLypTUPnj6a3PeV8LiR"
-	cockroachRedirectURI    = "urn:ietf:wg:oauth:2.0:oob"
 )
 
-// Google implements a driver for AWS.
+// Google implements a driver for Google Compute Engine.
 type Google struct {
 	context *base.Context
 	region  string
-
 	project string
 }
 
+// TODO(marc): this is the old config setup. This need to change after the merge.
 type NodeInfo struct {
 }
 
@@ -65,26 +62,26 @@ func NewDriver(context *base.Context, region string) *Google {
 }
 
 // Context returns the base context.
-func (a *Google) Context() *base.Context {
-	return a.context
+func (g *Google) Context() *base.Context {
+	return g.context
 }
 
 // DockerMachineDriver returns the name of the docker-machine driver.
-func (a *Google) DockerMachineDriver() string {
+func (g *Google) DockerMachineDriver() string {
 	return dockerMachineDriverName
 }
 
 // Init creates and compute client.
-func (a *Google) Init() error {
+func (g *Google) Init() error {
 	// Initialize auth: we re-use the code from docker-machine.
-	svc, err := newGCEService(a.context.GCETokenPath)
+	svc, err := newGCEService(g.context.GCETokenPath)
 	if err != nil {
 		return util.Errorf("could not get OAuth token: %v", err)
 	}
 
-	_, err = svc.Projects.Get(a.project).Do()
+	_, err = svc.Projects.Get(g.project).Do()
 	if err != nil {
-		return util.Errorf("invalid project %q: %v", a.project, err)
+		return util.Errorf("invalid project %q: %v", g.project, err)
 	}
 
 	// Return unimplemented for now so we don't proceed.
@@ -94,40 +91,40 @@ func (a *Google) Init() error {
 // DockerMachineCreateArgs returns the list of driver-specific arguments
 // to pass to 'docker-machine create'
 // TODO(marc): there are many other flags, see 'docker-machine help create'
-func (a *Google) DockerMachineCreateArgs() []string {
+func (g *Google) DockerMachineCreateArgs() []string {
 	return []string{
-		"--google-project", a.project,
-		"--google-auth-token", a.context.GCETokenPath,
+		"--google-project", g.project,
+		"--google-auth-token", g.context.GCETokenPath,
 	}
 }
 
 // PrintStatus prints the load balancer address to stdout.
-func (a *Google) PrintStatus() {
+func (g *Google) PrintStatus() {
 	fmt.Printf("Nothing yet")
 }
 
 // GetNodeSettings takes a node name and unmarshalled json config
 // and returns a filled NodeInfo.
-func (a *Google) GetNodeSettings(name string, config interface{}) (drivers.NodeSettings, error) {
+func (g *Google) GetNodeSettings(name string, config interface{}) (drivers.NodeSettings, error) {
 	return nil, util.Errorf("not implemented")
 }
 
 // ProcessFirstNode runs any steps needed after the first node was created.
-func (a *Google) ProcessFirstNode(name string, config interface{}) error {
+func (g *Google) ProcessFirstNode(name string, config interface{}) error {
 	return util.Errorf("not implemented")
 }
 
 // AddNode runs any steps needed to add a node (any node, not just the first one).
-func (a *Google) AddNode(name string, config interface{}) error {
+func (g *Google) AddNode(name string, config interface{}) error {
 	return util.Errorf("not implemented")
 }
 
 // StartNode adds the node to the load balancer.
-func (a *Google) StartNode(name string, config interface{}) error {
+func (g *Google) StartNode(name string, config interface{}) error {
 	return util.Errorf("not implemented")
 }
 
 // StopNode removes the node from the load balancer.
-func (a *Google) StopNode(name string, config interface{}) error {
+func (g *Google) StopNode(name string, config interface{}) error {
 	return util.Errorf("not implemented")
 }

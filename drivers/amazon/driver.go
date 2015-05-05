@@ -47,9 +47,10 @@ type Amazon struct {
 	vpcID string
 }
 
-// amazonHostConfig contains the amazon-specific fields of the docker-machine config.
+// config contains the amazon-specific fields of the docker-machine config.
 // Not all are specified, only those used here.
-type amazonHostConfig struct {
+// Implements drivers.DriverConfig.
+type config struct {
 	InstanceID       string
 	SecurityGroupID  string
 	PrivateIPAddress string
@@ -60,17 +61,17 @@ type amazonHostConfig struct {
 }
 
 // DataDir returns the data directory.
-func (cfg *amazonHostConfig) DataDir() string {
+func (cfg *config) DataDir() string {
 	return amazonDataDir
 }
 
 // IPAddress returns the IP address we will listen on.
-func (cfg *amazonHostConfig) IPAddress() string {
+func (cfg *config) IPAddress() string {
 	return cfg.PrivateIPAddress
 }
 
 // GossipAddress returns the address for the gossip network.
-func (cfg *amazonHostConfig) GossipAddress() string {
+func (cfg *config) GossipAddress() string {
 	return cfg.LoadBalancerAddress
 }
 
@@ -154,7 +155,7 @@ func (a *Amazon) PrintStatus() {
 // The LoadBalancerAddress is looked up and filled in.
 func (a *Amazon) GetNodeConfig(name string) (*drivers.HostConfig, error) {
 	cfg := &drivers.HostConfig{
-		Driver: &amazonHostConfig{},
+		Driver: &config{},
 	}
 
 	// Parse the config file.
@@ -168,7 +169,7 @@ func (a *Amazon) GetNodeConfig(name string) (*drivers.HostConfig, error) {
 	if err != nil || dnsName == "" {
 		return nil, util.Errorf("could not find load balancer: %v", err)
 	}
-	cfg.Driver.(*amazonHostConfig).LoadBalancerAddress = dnsName
+	cfg.Driver.(*config).LoadBalancerAddress = dnsName
 
 	return cfg, err
 }
@@ -194,18 +195,18 @@ func (a *Amazon) AfterFirstNode() error {
 
 // AddNode runs any steps needed to add a node (any node, not just the first one).
 // This just adds the node to the load balancer, so for now, call StartNode.
-func (a *Amazon) AddNode(name string, config *drivers.HostConfig) error {
-	return a.StartNode(name, config)
+func (a *Amazon) AddNode(name string, cfg *drivers.HostConfig) error {
+	return a.StartNode(name, cfg)
 }
 
 // StartNode adds the node to the load balancer.
 // ELB takes forever checking a stopped and started node,
 // so we have to remove it at stopping time, and re-register it start time.
-func (a *Amazon) StartNode(name string, config *drivers.HostConfig) error {
+func (a *Amazon) StartNode(name string, cfg *drivers.HostConfig) error {
 	log.Infof("adding node %s to load balancer", name)
-	err := AddNodeToELB(a.region, config.Driver.(*amazonHostConfig).InstanceID)
+	err := AddNodeToELB(a.region, cfg.Driver.(*config).InstanceID)
 	if err != nil {
-		return util.Errorf("failed to add node %s (%+v) to load balancer: %v", name, config, err)
+		return util.Errorf("failed to add node %s (%+v) to load balancer: %v", name, cfg, err)
 	}
 	return nil
 }
@@ -213,11 +214,11 @@ func (a *Amazon) StartNode(name string, config *drivers.HostConfig) error {
 // StopNode removes the node from the load balancer.
 // ELB takes forever checking a stopped and started node,
 // so we have to remove it at stopping time, and re-register it start time.
-func (a *Amazon) StopNode(name string, config *drivers.HostConfig) error {
+func (a *Amazon) StopNode(name string, cfg *drivers.HostConfig) error {
 	log.Infof("removing node %s from load balancer", name)
-	err := RemoveNodeFromELB(a.region, config.Driver.(*amazonHostConfig).InstanceID)
+	err := RemoveNodeFromELB(a.region, cfg.Driver.(*config).InstanceID)
 	if err != nil {
-		return util.Errorf("failed to remove node %s (%+v) from load balancer: %v", name, config, err)
+		return util.Errorf("failed to remove node %s (%+v) from load balancer: %v", name, cfg, err)
 	}
 	return nil
 }

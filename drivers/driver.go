@@ -25,12 +25,12 @@ import "github.com/cockroachdb/cockroach-prod/base"
 // https://github.com/docker/machine/blob/master/libmachine/host.go
 type HostConfig struct {
 	DriverName string
-	Driver     HostDriverConfig
+	Driver     DriverConfig
 }
 
-// HostDriverConfig describes the docker-machine host driver configs.
+// DriverConfig describes the docker-machine host driver configs.
 // It is implemented by each driver.
-type HostDriverConfig interface {
+type DriverConfig interface {
 	// DataDir is the directory used as the data directory.
 	DataDir() string
 	// IPAddress is the node address cockroach should bind to.

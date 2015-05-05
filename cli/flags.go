@@ -21,20 +21,20 @@ import "github.com/cockroachdb/cockroach-prod/base"
 
 // initFlags sets the base/context values to flag values.
 func initFlags(ctx *base.Context) {
-	cobraCommand.Flags().StringVar(&ctx.Certs, "certs", ctx.Certs, "certificates directory. Generated CA and node "+
+	cobraCommand.PersistentFlags().StringVar(&ctx.Certs, "certs", ctx.Certs, "certificates directory. Generated CA and node "+
 		"certs and keys are stored there.")
 
-	cobraCommand.Flags().Int64Var(&ctx.Port, "port", ctx.Port, "cockroach node and load balancer port.")
+	cobraCommand.PersistentFlags().Int64Var(&ctx.Port, "port", ctx.Port, "cockroach node and load balancer port.")
 
 	// Region to run in. This takes a driver attribute.
-	cobraCommand.Flags().StringVar(&ctx.Region, "region", ctx.Region, "region to run in. Specify a platform driver "+
+	cobraCommand.PersistentFlags().StringVar(&ctx.Region, "region", ctx.Region, "region to run in. Specify a platform driver "+
 		"and region. AWS EC2: aws:us-east-1, Google Compute Engine: gce:us-central1.")
 
 	// Driver-specific flags.
-	cobraCommand.Flags().StringVar(&ctx.GCEProject, "gce-project", ctx.GCEProject, "project name for Google Compute "+
+	cobraCommand.PersistentFlags().StringVar(&ctx.GCEProject, "gce-project", ctx.GCEProject, "project name for Google Compute "+
 		"engine. Defaults to \"cockroach-<local username>\".")
 
-	cobraCommand.Flags().StringVar(&ctx.GCETokenPath, "gce-auth-token", ctx.GCETokenPath, "path to the OAuth "+
+	cobraCommand.PersistentFlags().StringVar(&ctx.GCETokenPath, "gce-auth-token", ctx.GCETokenPath, "path to the OAuth "+
 		"token for Google Compute Engine.")
 }
 

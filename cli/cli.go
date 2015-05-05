@@ -92,8 +92,7 @@ var cobraCommand = &cobra.Command{
 	Short: "cockroach deployment tool",
 }
 
-// Run ...
-func Run(args []string) error {
+func init() {
 	cobraCommand.AddCommand(
 		// Cluster setup.
 		initCmd,
@@ -110,5 +109,10 @@ func Run(args []string) error {
 		listParamsCmd,
 		versionCmd,
 	)
+}
+
+// Run ...
+func Run(args []string) error {
+	cobraCommand.SetArgs(args)
 	return cobraCommand.Execute()
 }

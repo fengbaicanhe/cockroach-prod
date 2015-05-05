@@ -17,11 +17,19 @@
 
 package base
 
+import (
+	"log"
+	"os"
+	"os/user"
+)
+
 // Base context defaults.
 const (
-	defaultCerts  = "certs"
-	defaultPort   = 8080
-	defaultRegion = "aws:us-east-1"
+	defaultCerts        = "certs"
+	defaultPort         = 8080
+	defaultRegion       = ""
+	defaultGCEProject   = ""
+	defaultGCETokenPath = "${HOME}/.docker/machine/gce_token"
 )
 
 // Context is the base context object.
@@ -32,6 +40,12 @@ type Context struct {
 	Port int64
 	// Region to run in.
 	Region string
+
+	// Driver-specific flags.
+	// Project name for Google Compute Engine.
+	GCEProject string
+	// OAuth token path for Google Compute Engine.
+	GCETokenPath string
 }
 
 // NewContext returns a context with initialized values.
@@ -46,4 +60,14 @@ func (ctx *Context) InitDefaults() {
 	ctx.Certs = defaultCerts
 	ctx.Port = defaultPort
 	ctx.Region = defaultRegion
+	if len(defaultGCEProject) == 0 {
+		user, err := user.Current()
+		if err != nil {
+			log.Fatalf("failed to lookup current username: %v", err)
+		}
+		ctx.GCEProject = "cockroach-" + user.Username
+	} else {
+		ctx.GCEProject = defaultGCEProject
+	}
+	ctx.GCETokenPath = os.ExpandEnv(defaultGCETokenPath)
 }

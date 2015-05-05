@@ -27,6 +27,7 @@ import (
 	"github.com/cockroachdb/cockroach-prod/base"
 	"github.com/cockroachdb/cockroach-prod/drivers"
 	"github.com/cockroachdb/cockroach-prod/drivers/amazon"
+	"github.com/cockroachdb/cockroach-prod/drivers/google"
 	"github.com/cockroachdb/cockroach/util"
 
 	commander "code.google.com/p/go-commander"
@@ -59,8 +60,11 @@ func NewDriver(context *base.Context) (drivers.Driver, error) {
 
 	driver := tokens[0]
 	region := tokens[1]
-	if driver == "aws" {
+	switch driver {
+	case "aws":
 		return amazon.NewDriver(context, region), nil
+	case "gce":
+		return google.NewDriver(context, region), nil
 	}
 	return nil, util.Errorf("unknown driver: %s", driver)
 }

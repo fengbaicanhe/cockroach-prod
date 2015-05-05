@@ -30,9 +30,16 @@ func initFlags(ctx *base.Context) {
 
 	flag.Int64Var(&ctx.Port, "port", ctx.Port, "cockroach node and load balancer port.")
 
-	// TODO(marc): this may take a "cloud platform" attribute (eg: aws:<region> or gce:<region>).
-	// We will also need multi-region commands (eg: status, adding new region, etc...)
-	flag.StringVar(&ctx.Region, "region", ctx.Region, "region to run in.")
+	// Region to run in. This takes a driver attribute.
+	flag.StringVar(&ctx.Region, "region", ctx.Region, "region to run in. Specify a platform driver "+
+		"and region. AWS EC2: aws:us-east-1, Google Compute Engine: gce:us-central1.")
+
+	// Driver-specific flags.
+	flag.StringVar(&ctx.GCEProject, "gce-project", ctx.GCEProject, "project name for Google Compute "+
+		"engine. Defaults to \"cockroach-<local username>\".")
+
+	flag.StringVar(&ctx.GCETokenPath, "gce-auth-token", ctx.GCETokenPath, "path to the OAuth "+
+		"token for Google Compute Engine.")
 }
 
 func init() {

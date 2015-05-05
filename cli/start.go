@@ -18,25 +18,21 @@
 package cli
 
 import (
-	"flag"
-
-	"code.google.com/p/go-commander"
-
 	"github.com/cockroachdb/cockroach-prod/docker"
 	"github.com/cockroachdb/cockroach/util/log"
+	"github.com/spf13/cobra"
 )
 
-var startCmd = &commander.Command{
-	UsageLine: "start",
-	Short:     "start all nodes",
+var startCmd = &cobra.Command{
+	Use:   "start",
+	Short: "start all nodes",
 	Long: `
 Start all nodes. They must have been previously added and stopped.
 `,
-	Run:  runStart,
-	Flag: *flag.CommandLine,
+	Run: runStart,
 }
 
-func runStart(cmd *commander.Command, args []string) {
+func runStart(cmd *cobra.Command, args []string) {
 	driver, err := NewDriver(Context)
 	if err != nil {
 		log.Errorf("could not create driver: %v", err)

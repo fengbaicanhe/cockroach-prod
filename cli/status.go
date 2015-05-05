@@ -18,28 +18,25 @@
 package cli
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 
-	"code.google.com/p/go-commander"
-
 	"github.com/cockroachdb/cockroach-prod/docker"
 	"github.com/cockroachdb/cockroach/util/log"
+	"github.com/spf13/cobra"
 )
 
-var statusCmd = &commander.Command{
-	UsageLine: "status",
-	Short:     "show status\n",
+var statusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "show status\n",
 	Long: `
 Show status.
 `,
-	Run:  runStatus,
-	Flag: *flag.CommandLine,
+	Run: runStatus,
 }
 
-func runStatus(cmd *commander.Command, args []string) {
+func runStatus(cmd *cobra.Command, args []string) {
 	// Check dependencies first.
 	if err := docker.CheckDockerMachine(); err != nil {
 		log.Errorf("docker-machine is not properly installed: %v", err)

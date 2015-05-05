@@ -18,25 +18,21 @@
 package cli
 
 import (
-	"flag"
-
-	"code.google.com/p/go-commander"
-
 	"github.com/cockroachdb/cockroach-prod/docker"
 	"github.com/cockroachdb/cockroach/util/log"
+	"github.com/spf13/cobra"
 )
 
-var stopCmd = &commander.Command{
-	UsageLine: "stop",
-	Short:     "stop all nodes\n",
+var stopCmd = &cobra.Command{
+	Use:   "stop",
+	Short: "stop all nodes\n",
 	Long: `
 Stop all nodes. This stops the actual cloud instances.
 `,
-	Run:  runStop,
-	Flag: *flag.CommandLine,
+	Run: runStop,
 }
 
-func runStop(cmd *commander.Command, args []string) {
+func runStop(cmd *cobra.Command, args []string) {
 	driver, err := NewDriver(Context)
 	if err != nil {
 		log.Errorf("could not create driver: %v", err)

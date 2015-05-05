@@ -18,27 +18,24 @@
 package cli
 
 import (
-	"flag"
 	"strconv"
-
-	"code.google.com/p/go-commander"
 
 	"github.com/cockroachdb/cockroach-prod/docker"
 	"github.com/cockroachdb/cockroach/util"
 	"github.com/cockroachdb/cockroach/util/log"
+	"github.com/spf13/cobra"
 )
 
-var addNodesCmd = &commander.Command{
-	UsageLine: "add-nodes N",
-	Short:     "add new nodes\n",
+var addNodesCmd = &cobra.Command{
+	Use:   "add-nodes N",
+	Short: "add new nodes\n",
 	Long: `
 Add N new nodes to an existing cluster
 `,
-	Run:  runAddNodes,
-	Flag: *flag.CommandLine,
+	Run: runAddNodes,
 }
 
-func runAddNodes(cmd *commander.Command, args []string) {
+func runAddNodes(cmd *cobra.Command, args []string) {
 	if len(args) != 1 {
 		cmd.Usage()
 		return

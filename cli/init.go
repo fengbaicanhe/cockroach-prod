@@ -18,24 +18,21 @@
 package cli
 
 import (
-	"flag"
-
-	"code.google.com/p/go-commander"
 	"github.com/cockroachdb/cockroach-prod/docker"
 	"github.com/cockroachdb/cockroach/util/log"
+	"github.com/spf13/cobra"
 )
 
-var initCmd = &commander.Command{
-	UsageLine: "init",
-	Short:     "initialize a cockroach cluster",
+var initCmd = &cobra.Command{
+	Use:   "init",
+	Short: "initialize a cockroach cluster",
 	Long: `
 Initialize a cockroach cluster. This initializes and starts the first node.
 `,
-	Run:  runInit,
-	Flag: *flag.CommandLine,
+	Run: runInit,
 }
 
-func runInit(cmd *commander.Command, args []string) {
+func runInit(cmd *cobra.Command, args []string) {
 	driver, err := NewDriver(Context)
 	if err != nil {
 		log.Errorf("could not create driver: %v", err)

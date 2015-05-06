@@ -29,16 +29,15 @@ import (
 	"github.com/cockroachdb/cockroach-prod/drivers/amazon"
 	"github.com/cockroachdb/cockroach-prod/drivers/google"
 	"github.com/cockroachdb/cockroach/util"
-
-	commander "code.google.com/p/go-commander"
+	"github.com/spf13/cobra"
 )
 
 // Context contains basic configuration settings.
 var Context = base.NewContext()
 
-var listParamsCmd = &commander.Command{
-	UsageLine: "listparams",
-	Short:     "list all available parameters and their default values",
+var listParamsCmd = &cobra.Command{
+	Use:   "listparams",
+	Short: "list all available parameters and their default values",
 	Long: `
 List all available parameters and their default values.
 Note that parameter parsing stops after the first non-
@@ -46,7 +45,7 @@ option after the command name. Hence, the options need
 to precede any additional arguments,
 
   cockroach-prod <command> [options] [arguments].`,
-	Run: func(cmd *commander.Command, args []string) {
+	Run: func(cmd *cobra.Command, args []string) {
 		flag.CommandLine.PrintDefaults()
 	},
 }
@@ -69,13 +68,13 @@ func NewDriver(context *base.Context) (drivers.Driver, error) {
 	return nil, util.Errorf("unknown driver: %s", driver)
 }
 
-var versionCmd = &commander.Command{
-	UsageLine: "version",
-	Short:     "output version information",
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "output version information",
 	Long: `
 Output build version information.
 `,
-	Run: func(cmd *commander.Command, args []string) {
+	Run: func(cmd *cobra.Command, args []string) {
 		info := util.GetBuildInfo()
 		w := &tabwriter.Writer{}
 		w.Init(os.Stdout, 2, 1, 2, ' ', 0)
@@ -88,9 +87,13 @@ Output build version information.
 	},
 }
 
-var allCmds = &commander.Commander{
-	Name: "cockroach-prod",
-	Commands: []*commander.Command{
+var cobraCommand = &cobra.Command{
+	Use:   "cockroach-prod",
+	Short: "cockroach deployment tool",
+}
+
+func init() {
+	cobraCommand.AddCommand(
 		// Cluster setup.
 		initCmd,
 		addNodesCmd,
@@ -105,10 +108,11 @@ var allCmds = &commander.Commander{
 		// Misc commands.
 		listParamsCmd,
 		versionCmd,
-	},
+	)
 }
 
 // Run ...
 func Run(args []string) error {
-	return allCmds.Run(args)
+	cobraCommand.SetArgs(args)
+	return cobraCommand.Execute()
 }

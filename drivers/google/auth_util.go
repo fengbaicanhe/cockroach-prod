@@ -63,7 +63,7 @@ const (
 	// Cockroach client ID and secret.
 	// TODO(marc): details show my personal email for now. We should have a more
 	// generic user-facing one.
-	clientId     = "962032490974-5avmqm15uklkgus98c7f862dk23u5mdk.apps.googleusercontent.com"
+	clientID     = "962032490974-5avmqm15uklkgus98c7f862dk23u5mdk.apps.googleusercontent.com"
 	clientSecret = "SSytmGLypTUPnj6a3PeV8LiR"
 	redirectURI  = "urn:ietf:wg:oauth:2.0:oob"
 )
@@ -79,7 +79,7 @@ func newGCEService(authTokenPath string) (*compute.Service, error) {
 
 func newOauthClient(authTokenPath string) (*http.Client, error) {
 	config := &oauth.Config{
-		ClientId:     clientId,
+		ClientId:     clientID,
 		ClientSecret: clientSecret,
 		Scope:        compute.ComputeScope,
 		AuthURL:      authURL,

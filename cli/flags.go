@@ -17,10 +17,41 @@
 
 package cli
 
-import "github.com/cockroachdb/cockroach-prod/base"
+import (
+	"flag"
+	"reflect"
 
+	"github.com/cockroachdb/cockroach-prod/base"
+)
+
+// pflagValue wraps flag.Value and implements the extra methods of the
+// pflag.Value interface.
+type pflagValue struct {
+	flag.Value
+}
+
+func (v pflagValue) Type() string {
+	t := reflect.TypeOf(v.Value).Elem()
+	return t.Kind().String()
+}
+
+func (v pflagValue) IsBoolFlag() bool {
+	t := reflect.TypeOf(v.Value).Elem()
+	return t.Kind() == reflect.Bool
+}
+
+// initFlags sets the server.Context values to flag values.
+// Keep in sync with "server/context.go". Values in Context should be
+// settable here.
 // initFlags sets the base/context values to flag values.
 func initFlags(ctx *base.Context) {
+	// Map any flags registered in the standard "flag" package into the
+	// top-level cockroach command.
+	pf := cobraCommand.PersistentFlags()
+	flag.VisitAll(func(f *flag.Flag) {
+		pf.Var(pflagValue{f.Value}, f.Name, f.Usage)
+	})
+
 	cobraCommand.PersistentFlags().StringVar(&ctx.Certs, "certs", ctx.Certs, "certificates directory. Generated CA and node "+
 		"certs and keys are stored there.")
 

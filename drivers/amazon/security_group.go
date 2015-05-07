@@ -26,6 +26,7 @@ import (
 const (
 	securityGroupName             = "docker-machine"
 	allIPAddresses                = "0.0.0.0/0"
+	cockroachProtocol             = "tcp"
 	awsSecurityRuleDuplicateError = "InvalidPermission.Duplicate"
 	awsSecurityGroupNotFound      = "InvalidGroup.NotFound"
 )

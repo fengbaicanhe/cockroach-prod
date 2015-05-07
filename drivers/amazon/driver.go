@@ -30,7 +30,6 @@ import (
 const (
 	dockerMachineDriverName = "amazonec2"
 	amazonDataDir           = "/home/ubuntu/data"
-	cockroachProtocol       = "tcp"
 	defaultZone             = "a"
 )
 

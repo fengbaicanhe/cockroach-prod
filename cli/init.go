@@ -78,17 +78,17 @@ func runInit(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	// Do "new node" logic.
-	err = driver.AddNode(nodeName, nodeConfig)
-	if err != nil {
-		log.Errorf("could not run AddNode steps for %s: %v", nodeName, err)
-		return
-	}
-
 	// Initialize cockroach node.
 	err = docker.RunDockerInit(driver, nodeName, nodeConfig)
 	if err != nil {
 		log.Errorf("could not initialize first cockroach node %s: %v", nodeName, err)
+		return
+	}
+
+	// Do "start node" logic.
+	err = driver.StartNode(nodeName, nodeConfig)
+	if err != nil {
+		log.Errorf("could not run StartNode steps for %s: %v", nodeName, err)
 		return
 	}
 

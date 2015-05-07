@@ -64,9 +64,6 @@ type Driver interface {
 	// AfterFirstNode runs any steps needed after the first node was created.
 	AfterFirstNode() error
 
-	// AddNode runs any steps needed for new nodes (not just the first one).
-	AddNode(name string, config *HostConfig) error
-
 	// StartNode runs any steps needed when starting an existing node.
 	StartNode(name string, config *HostConfig) error
 

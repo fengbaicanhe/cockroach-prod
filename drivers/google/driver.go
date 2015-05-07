@@ -143,7 +143,7 @@ func (g *Google) GetNodeConfig(name string) (*drivers.HostConfig, error) {
 	// We need the just-parsed driver config.
 	driverCfg := cfg.Driver.(*config)
 
-	// Lookup the instance, there are a few fields docker-machine does not same.
+	// Lookup the instance, there are a few fields docker-machine does not save.
 	instance, err := getInstanceDetails(g.computeService, g.project, driverCfg.Zone, driverCfg.MachineName)
 	if err != nil {
 		return nil, err
@@ -176,11 +176,6 @@ func (g *Google) AfterFirstNode() error {
 		return util.Errorf("failed to create forwarding rule: %v", err)
 	}
 	return nil
-}
-
-// AddNode runs any steps needed to add a node (any node, not just the first one).
-func (g *Google) AddNode(name string, cfg *drivers.HostConfig) error {
-	return addTarget(g.computeService, g.project, g.region, cfg.Driver.(*config).link)
 }
 
 // StartNode adds the node to the load balancer.

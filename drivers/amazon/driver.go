@@ -192,12 +192,6 @@ func (a *Amazon) AfterFirstNode() error {
 	return err
 }
 
-// AddNode runs any steps needed to add a node (any node, not just the first one).
-// This just adds the node to the load balancer, so for now, call StartNode.
-func (a *Amazon) AddNode(name string, cfg *drivers.HostConfig) error {
-	return a.StartNode(name, cfg)
-}
-
 // StartNode adds the node to the load balancer.
 // ELB takes forever checking a stopped and started node,
 // so we have to remove it at stopping time, and re-register it start time.

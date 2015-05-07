@@ -20,9 +20,10 @@ package google
 import (
 	"fmt"
 
-	"github.com/cockroachdb/cockroach/util/log"
+	// The package is called "compute" but is in v1. Specify import name for clarify.
+	compute "google.golang.org/api/compute/v1"
 
-	"google.golang.org/api/compute/v1"
+	"github.com/cockroachdb/cockroach/util/log"
 )
 
 const (
@@ -32,8 +33,9 @@ const (
 	forwardingRuleName = "cockroach-lb-rule"
 	healthCheckName    = "cockroach-lb-healthcheck"
 	targetPoolName     = "cockroach-lb-targetpool"
-	healthCheckPath    = "/_status/"
-	computeURIPrefix   = "https://www.googleapis.com/compute/v1/"
+	// TODO(marc): some of these should be pulled from cockroach/base/Context or similar.
+	healthCheckPath  = "/_status/"
+	computeURIPrefix = "https://www.googleapis.com/compute/v1/"
 )
 
 // Check whether the named project exists. Returns nil if it does.
@@ -68,7 +70,7 @@ func createFirewallRule(service *compute.Service, project string, cockroachPort 
 	return err
 }
 
-// Lookup fowarding rule. For now, we use "network forwarding" instead
+// Lookup forwarding rule. For now, we use "network forwarding" instead
 // "HTTP/S load balancing" which is still beta.
 func lookupForwardingRule(service *compute.Service, project, region string) (*compute.ForwardingRule, error) {
 	return service.ForwardingRules.Get(project, region, forwardingRuleName).Do()

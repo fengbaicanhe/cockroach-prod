@@ -69,12 +69,15 @@ const (
 )
 
 func newGCEService(authTokenPath string) (*compute.Service, error) {
-	client := newOauthClient(authTokenPath)
+	client, err := newOauthClient(authTokenPath)
+	if err != nil {
+		return nil, err
+	}
 	service, err := compute.New(client)
 	return service, err
 }
 
-func newOauthClient(authTokenPath string) *http.Client {
+func newOauthClient(authTokenPath string) (*http.Client, error) {
 	config := &oauth.Config{
 		ClientId:     clientId,
 		ClientSecret: clientSecret,
@@ -83,22 +86,32 @@ func newOauthClient(authTokenPath string) *http.Client {
 		TokenURL:     tokenURL,
 	}
 
-	token := token(authTokenPath, config)
+	token, err := getToken(authTokenPath, config)
+	if err != nil {
+		return nil, err
+	}
+
 	t := oauth.Transport{
 		Token:     token,
 		Config:    config,
 		Transport: http.DefaultTransport,
 	}
-	return t.Client()
+	return t.Client(), nil
 }
 
-func token(tokenPath string, config *oauth.Config) *oauth.Token {
+func getToken(tokenPath string, config *oauth.Config) (*oauth.Token, error) {
 	token, err := tokenFromCache(tokenPath)
-	if err != nil {
-		token = tokenFromWeb(config)
-		saveToken(tokenPath, token)
+	if err == nil {
+		return token, nil
 	}
-	return token
+
+	token, err = tokenFromWeb(config)
+	if err != nil {
+		return nil, err
+	}
+
+	saveToken(tokenPath, token)
+	return token, nil
 }
 
 func tokenFromCache(tokenPath string) (*oauth.Token, error) {
@@ -111,7 +124,7 @@ func tokenFromCache(tokenPath string) (*oauth.Token, error) {
 	return token, err
 }
 
-func tokenFromWeb(config *oauth.Config) *oauth.Token {
+func tokenFromWeb(config *oauth.Config) (*oauth.Token, error) {
 	randState := fmt.Sprintf("st%d", time.Now().UnixNano())
 
 	config.RedirectURL = redirectURI
@@ -131,9 +144,9 @@ func tokenFromWeb(config *oauth.Config) *oauth.Token {
 	}
 	_, err := t.Exchange(code)
 	if err != nil {
-		log.Fatalf("Token exchange error: %v", err)
+		return nil, err
 	}
-	return t.Token
+	return t.Token, nil
 }
 
 func getCodeFromStdin() string {

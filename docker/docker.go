@@ -61,8 +61,7 @@ func RunDockerInit(driver drivers.Driver, nodeName string, settings *drivers.Hos
 		"-v", fmt.Sprintf("%s:/data", settings.Driver.DataDir()),
 		"cockroachdb/cockroach",
 		"init",
-		"-insecure",
-		"-stores", "ssd=/data",
+		"--stores=ssd=/data",
 	)
 	log.Infof("running: docker %s", strings.Join(args, " "))
 	cmd := exec.Command("docker", args...)
@@ -88,10 +87,10 @@ func RunDockerStart(driver drivers.Driver, nodeName string, settings *drivers.Ho
 		"--net", "host",
 		"cockroachdb/cockroach",
 		"start",
-		"-insecure",
-		"-stores", "ssd=/data",
-		"-addr", fmt.Sprintf("%s:%d", settings.Driver.IPAddress(), port),
-		"-gossip", fmt.Sprintf("%s:%d", settings.Driver.GossipAddress(), port),
+		"--insecure",
+		"--stores=ssd=/data",
+		fmt.Sprintf("--addr=%s:%d", settings.Driver.IPAddress(), port),
+		fmt.Sprintf("--gossip=%s:%d", settings.Driver.GossipAddress(), port),
 	)
 	log.Infof("running: docker %s", strings.Join(args, " "))
 	cmd := exec.Command("docker", args...)

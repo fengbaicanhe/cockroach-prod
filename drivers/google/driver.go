@@ -20,15 +20,19 @@ package google
 import (
 	"fmt"
 
+	// The package is called "compute" but is in v1. Specify import name for clarify.
+	compute "google.golang.org/api/compute/v1"
+
 	"github.com/cockroachdb/cockroach-prod/base"
 	"github.com/cockroachdb/cockroach-prod/docker"
 	"github.com/cockroachdb/cockroach-prod/drivers"
 	"github.com/cockroachdb/cockroach/util"
-	"github.com/docker/machine/log"
+	"github.com/cockroachdb/cockroach/util/log"
 )
 
 const (
 	dockerMachineDriverName = "google"
+	googleDataDir           = "/home/docker-user/data"
 )
 
 // Google implements a driver for Google Compute Engine.
@@ -36,27 +40,36 @@ type Google struct {
 	context *base.Context
 	region  string
 	project string
+
+	// Created at Init() time.
+	computeService *compute.Service
 }
 
 // config contains the google-specific fields of the docker-machine config.
 // Not all are specified, only those used here.
 // Implements drivers.DriverConfig.
 type config struct {
+	MachineName string
+	Zone        string
+
+	// IP addresses are not saved by docker, we have to look them up.
+	internalIPAddress string
 }
 
 // DataDir returns the data directory.
 func (cfg *config) DataDir() string {
-	return ""
+	return googleDataDir
 }
 
 // IPAddress returns the IP address we will listen on.
 func (cfg *config) IPAddress() string {
-	return ""
+	return cfg.internalIPAddress
 }
 
 // GossipAddress returns the address for the gossip network.
 func (cfg *config) GossipAddress() string {
-	return ""
+	// todo(marc): fill in and return load balancer address.
+	return "self://"
 }
 
 // NewDriver returns an initialized Google driver.
@@ -78,22 +91,21 @@ func (g *Google) DockerMachineDriver() string {
 	return dockerMachineDriverName
 }
 
-// Init creates and compute client.
+// Init creates and and initializes the compute client.
 func (g *Google) Init() error {
 	// Initialize auth: we re-use the code from docker-machine.
 	svc, err := newGCEService(g.context.GCETokenPath)
 	if err != nil {
 		return util.Errorf("could not get OAuth token: %v", err)
 	}
+	g.computeService = svc
 
-	_, err = svc.Projects.Get(g.project).Do()
-	if err != nil {
+	if err = checkProjectExists(g.computeService, g.project); err != nil {
 		return util.Errorf("invalid project %q: %v", g.project, err)
 	}
 
 	log.Infof("validated project name: %q", g.project)
-	// Return unimplemented for now so we don't proceed.
-	return util.Errorf("not implemented")
+	return nil
 }
 
 // DockerMachineCreateArgs returns the list of driver-specific arguments
@@ -108,7 +120,7 @@ func (g *Google) DockerMachineCreateArgs() []string {
 
 // PrintStatus prints the load balancer address to stdout.
 func (g *Google) PrintStatus() {
-	fmt.Printf("Nothing yet")
+	fmt.Printf("Nothing yet\n")
 }
 
 // GetNodeConfig takes a node name and reads its docker-machine config.
@@ -123,17 +135,36 @@ func (g *Google) GetNodeConfig(name string) (*drivers.HostConfig, error) {
 		return nil, err
 	}
 
+	// We need the just-parsed driver config.
+	driverCfg := cfg.Driver.(*config)
+
+	// Lookup the IP address. We need the project, zone, and instance name for that.
+	instance, err := getInstanceDetails(g.computeService, g.project, driverCfg.Zone, driverCfg.MachineName)
+	if err != nil {
+		return nil, err
+	}
+
+	driverCfg.internalIPAddress = instance.NetworkInterfaces[0].NetworkIP
+
 	return cfg, err
 }
 
 // AfterFirstNode runs any steps needed after the first node was created.
 func (g *Google) AfterFirstNode() error {
-	return util.Errorf("not implemented")
+	log.Info("adding firewall rule")
+	err := createFirewallRule(g.computeService, g.project, g.context.Port)
+	if err != nil {
+		return util.Errorf("failed to create firewall rule: %v", err)
+	}
+
+	// TODO(marc): implement load balancer creation.
+	return nil
 }
 
 // AddNode runs any steps needed to add a node (any node, not just the first one).
 func (g *Google) AddNode(name string, cfg *drivers.HostConfig) error {
-	return util.Errorf("not implemented")
+	// TODO(marc): add node to load balancer.
+	return nil
 }
 
 // StartNode adds the node to the load balancer.

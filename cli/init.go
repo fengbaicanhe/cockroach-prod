@@ -64,17 +64,17 @@ func runInit(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	// Lookup node info.
-	nodeConfig, err := driver.GetNodeConfig(nodeName)
-	if err != nil {
-		log.Errorf("could not get node config for %s: %v", nodeName, err)
-		return
-	}
-
 	// Run driver steps after first-node creation.
 	err = driver.AfterFirstNode()
 	if err != nil {
 		log.Errorf("could not run AfterFirstNode steps for: %v", err)
+		return
+	}
+
+	// Lookup node info.
+	nodeConfig, err := driver.GetNodeConfig(nodeName)
+	if err != nil {
+		log.Errorf("could not get node config for %s: %v", nodeName, err)
 		return
 	}
 

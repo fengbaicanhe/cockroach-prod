@@ -52,8 +52,10 @@ type config struct {
 	MachineName string
 	Zone        string
 
-	// IP addresses are not saved by docker, we have to look them up.
-	internalIPAddress string
+	// Fields not saved by docker-machine. We look them up.
+	internalIPAddress     string
+	link                  string
+	forwardingRuleAddress string
 }
 
 // DataDir returns the data directory.
@@ -68,8 +70,7 @@ func (cfg *config) IPAddress() string {
 
 // GossipAddress returns the address for the gossip network.
 func (cfg *config) GossipAddress() string {
-	// todo(marc): fill in and return load balancer address.
-	return "self://"
+	return cfg.forwardingRuleAddress
 }
 
 // NewDriver returns an initialized Google driver.
@@ -120,7 +121,11 @@ func (g *Google) DockerMachineCreateArgs() []string {
 
 // PrintStatus prints the load balancer address to stdout.
 func (g *Google) PrintStatus() {
-	fmt.Printf("Nothing yet\n")
+	rule, err := lookupForwardingRule(g.computeService, g.project, g.region)
+	if err != nil {
+		fmt.Println("Forwarding Rule: not found:", err)
+	}
+	fmt.Printf("Forwarding Rule: %s:%d\n", rule.IPAddress, g.context.Port)
 }
 
 // GetNodeConfig takes a node name and reads its docker-machine config.
@@ -138,13 +143,21 @@ func (g *Google) GetNodeConfig(name string) (*drivers.HostConfig, error) {
 	// We need the just-parsed driver config.
 	driverCfg := cfg.Driver.(*config)
 
-	// Lookup the IP address. We need the project, zone, and instance name for that.
+	// Lookup the instance, there are a few fields docker-machine does not same.
 	instance, err := getInstanceDetails(g.computeService, g.project, driverCfg.Zone, driverCfg.MachineName)
 	if err != nil {
 		return nil, err
 	}
 
 	driverCfg.internalIPAddress = instance.NetworkInterfaces[0].NetworkIP
+	driverCfg.link = instance.SelfLink
+
+	// Lookup the forwarding rule.
+	rule, err := lookupForwardingRule(g.computeService, g.project, g.region)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Driver.(*config).forwardingRuleAddress = rule.IPAddress
 
 	return cfg, err
 }
@@ -157,22 +170,25 @@ func (g *Google) AfterFirstNode() error {
 		return util.Errorf("failed to create firewall rule: %v", err)
 	}
 
-	// TODO(marc): implement load balancer creation.
+	log.Info("creating forwarding rule")
+	err = createForwardingRule(g.computeService, g.project, g.region, g.context.Port)
+	if err != nil {
+		return util.Errorf("failed to create forwarding rule: %v", err)
+	}
 	return nil
 }
 
 // AddNode runs any steps needed to add a node (any node, not just the first one).
 func (g *Google) AddNode(name string, cfg *drivers.HostConfig) error {
-	// TODO(marc): add node to load balancer.
-	return nil
+	return addTarget(g.computeService, g.project, g.region, cfg.Driver.(*config).link)
 }
 
 // StartNode adds the node to the load balancer.
 func (g *Google) StartNode(name string, cfg *drivers.HostConfig) error {
-	return util.Errorf("not implemented")
+	return addTarget(g.computeService, g.project, g.region, cfg.Driver.(*config).link)
 }
 
 // StopNode removes the node from the load balancer.
 func (g *Google) StopNode(name string, cfg *drivers.HostConfig) error {
-	return util.Errorf("not implemented")
+	return removeTarget(g.computeService, g.project, g.region, cfg.Driver.(*config).link)
 }

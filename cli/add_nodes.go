@@ -21,6 +21,7 @@ import (
 	"strconv"
 
 	"github.com/cockroachdb/cockroach-prod/docker"
+	"github.com/cockroachdb/cockroach-prod/drivers"
 	"github.com/cockroachdb/cockroach/util"
 	"github.com/cockroachdb/cockroach/util/log"
 	"github.com/spf13/cobra"
@@ -46,9 +47,15 @@ func runAddNodes(cmd *cobra.Command, args []string) {
 		return
 	}
 
+	driver, err := NewDriver(Context)
+	if err != nil {
+		log.Errorf("could not create driver: %v", err)
+		return
+	}
+
 	for i := 1; i <= numNodes; i++ {
 		log.Infof("adding node %d of %d", i, numNodes)
-		err := AddOneNode()
+		err := AddOneNode(driver)
 		if err != nil {
 			log.Errorf("problem adding node: %v", err)
 			return
@@ -57,17 +64,7 @@ func runAddNodes(cmd *cobra.Command, args []string) {
 }
 
 // AddOneNode is a helper to add a single node. Called repeatedly.
-func AddOneNode() error {
-	driver, err := NewDriver(Context)
-	if err != nil {
-		return util.Errorf("could not create driver: %v", err)
-	}
-
-	err = driver.Init()
-	if err != nil {
-		return util.Errorf("failed to initialized driver: %v", err)
-	}
-
+func AddOneNode(driver drivers.Driver) error {
 	nodes, err := docker.ListCockroachNodes()
 	if err != nil {
 		return util.Errorf("failed to get list of existing cockroach nodes: %v", err)

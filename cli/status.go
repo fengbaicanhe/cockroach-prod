@@ -50,31 +50,26 @@ func runStatus(cmd *cobra.Command, args []string) {
 	}
 	log.Info("docker binary found")
 
-	// Print docker-machine status.
-	fmt.Println("######## docker-machine ########")
-	c := exec.Command("docker-machine", "ls")
-	c.Stdin = os.Stdin
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
-	err := c.Run()
-
-	if err != nil {
-		log.Error(err)
-	}
-
-	// Get driver-specific status.
+	// Initialize driver: this refreshes oauth.
 	driver, err := NewDriver(Context)
 	if err != nil {
 		log.Errorf("could not create driver: %v", err)
 		return
 	}
 
-	err = driver.Init()
+	// Print docker-machine status.
+	fmt.Println("######## docker-machine ########")
+	c := exec.Command("docker-machine", "ls")
+	c.Stdin = os.Stdin
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
+	err = c.Run()
+
 	if err != nil {
-		log.Errorf("failed to initialized driver: %v", err)
-		return
+		log.Error(err)
 	}
 
+	// Get driver-specific status.
 	fmt.Printf("\n######### %s ########\n", driver.DockerMachineDriver())
 	driver.PrintStatus()
 }

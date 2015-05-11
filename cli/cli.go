@@ -50,22 +50,31 @@ to precede any additional arguments,
 	},
 }
 
-// NewDriver creates a new driver based on the passed-in Context.
+// NewDriver creates a new driver based on the passed-in Context
+// and initializes it.
+// This sets up authentication and should be called before
+// driver-specific docker-machine commands.
 func NewDriver(context *base.Context) (drivers.Driver, error) {
 	tokens := strings.SplitN(context.Region, ":", 2)
 	if len(tokens) != 2 {
 		return nil, util.Errorf("invalid region syntax, expected <driver>:<region name>, got: %q", context.Region)
 	}
 
-	driver := tokens[0]
+	var driver drivers.Driver
+
+	provider := tokens[0]
 	region := tokens[1]
-	switch driver {
+	switch provider {
 	case "aws":
-		return amazon.NewDriver(context, region), nil
+		driver = amazon.NewDriver(context, region)
 	case "gce":
-		return google.NewDriver(context, region), nil
+		driver = google.NewDriver(context, region)
+	default:
+		return nil, util.Errorf("unknown driver: %s", driver)
 	}
-	return nil, util.Errorf("unknown driver: %s", driver)
+
+	err := driver.Init()
+	return driver, err
 }
 
 var versionCmd = &cobra.Command{

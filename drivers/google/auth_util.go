@@ -88,6 +88,7 @@ func (f gobCache) Token() (*oauth.Token, error) {
 }
 
 // PutToken stores the given token in the cache.
+// TODO(marc): we should write to a tmp file and rename in case we error out.
 func (f gobCache) PutToken(tok *oauth.Token) error {
 	file, err := os.OpenFile(string(f), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
@@ -139,6 +140,7 @@ func initTransport(transport *oauth.Transport) error {
 		}
 
 		// Token is expired, attempt a refresh.
+		// TODO(marc): we should check whether it expires soon (eg: 5 minutes).
 		err := transport.Refresh()
 		if err == nil {
 			return nil

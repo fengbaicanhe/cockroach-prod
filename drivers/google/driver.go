@@ -19,6 +19,7 @@ package google
 
 import (
 	"fmt"
+	"time"
 
 	// The package is called "compute" but is in v1. Specify import name for clarify.
 	compute "google.golang.org/api/compute/v1"
@@ -31,8 +32,9 @@ import (
 )
 
 const (
-	dockerMachineDriverName = "google"
-	googleDataDir           = "/home/docker-user/data"
+	dockerMachineDriverName   = "google"
+	googleDataDir             = "/home/docker-user/data"
+	loadBalancerLookupRetries = 5
 )
 
 // Google implements a driver for Google Compute Engine.
@@ -181,15 +183,29 @@ func (g *Google) AfterFirstNode() error {
 	if err != nil {
 		return util.Errorf("failed to create forwarding rule: %v", err)
 	}
+
+	// Load balancer creation may take a little while and is required for further steps,
+	// so retry a few times.
+	for i := 1; i <= loadBalancerLookupRetries; i++ {
+		rule, err := lookupForwardingRule(g.computeService, g.project, g.region)
+		if err == nil {
+			log.Infof("found forwarding rule at %s", rule.IPAddress)
+			break
+		}
+		log.Infof("waiting for forwarding rule creation... %d/%d", i, loadBalancerLookupRetries)
+		time.Sleep(3 * time.Second)
+	}
 	return nil
 }
 
 // StartNode adds the node to the load balancer.
 func (g *Google) StartNode(name string, cfg *drivers.HostConfig) error {
+	log.Infof("Adding node %s to load balancer", name)
 	return addTarget(g.computeService, g.project, g.region, cfg.Driver.(*config).link)
 }
 
 // StopNode removes the node from the load balancer.
 func (g *Google) StopNode(name string, cfg *drivers.HostConfig) error {
+	log.Infof("Removing node %s from load balancer", name)
 	return removeTarget(g.computeService, g.project, g.region, cfg.Driver.(*config).link)
 }

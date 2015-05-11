@@ -95,10 +95,10 @@ func AddOneNode() error {
 		return util.Errorf("could not get node config for %s: %v", nodeName, err)
 	}
 
-	// Do "new node" logic.
-	err = driver.AddNode(nodeName, nodeConfig)
+	// Do "start node" logic.
+	err = driver.StartNode(nodeName, nodeConfig)
 	if err != nil {
-		return util.Errorf("could not run AddNode steps for %s: %v", nodeName, err)
+		return util.Errorf("could not run StartNode steps for %s: %v", nodeName, err)
 	}
 
 	// Start the cockroach node.

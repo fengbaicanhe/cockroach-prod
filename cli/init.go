@@ -64,13 +64,6 @@ func runInit(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	// Lookup node info.
-	nodeConfig, err := driver.GetNodeConfig(nodeName)
-	if err != nil {
-		log.Errorf("could not get node config for %s: %v", nodeName, err)
-		return
-	}
-
 	// Run driver steps after first-node creation.
 	err = driver.AfterFirstNode()
 	if err != nil {
@@ -78,10 +71,10 @@ func runInit(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	// Do "new node" logic.
-	err = driver.AddNode(nodeName, nodeConfig)
+	// Lookup node info.
+	nodeConfig, err := driver.GetNodeConfig(nodeName)
 	if err != nil {
-		log.Errorf("could not run AddNode steps for %s: %v", nodeName, err)
+		log.Errorf("could not get node config for %s: %v", nodeName, err)
 		return
 	}
 
@@ -89,6 +82,13 @@ func runInit(cmd *cobra.Command, args []string) {
 	err = docker.RunDockerInit(driver, nodeName, nodeConfig)
 	if err != nil {
 		log.Errorf("could not initialize first cockroach node %s: %v", nodeName, err)
+		return
+	}
+
+	// Do "start node" logic.
+	err = driver.StartNode(nodeName, nodeConfig)
+	if err != nil {
+		log.Errorf("could not run StartNode steps for %s: %v", nodeName, err)
 		return
 	}
 

@@ -95,9 +95,14 @@ func (g *Google) DockerMachineDriver() string {
 // Init creates and and initializes the compute client.
 func (g *Google) Init() error {
 	// Initialize auth: we re-use the code from docker-machine.
-	svc, err := newGCEService(g.context.GCETokenPath)
+	oauthClient, err := newOauthClient(g.context.GCETokenPath)
 	if err != nil {
-		return util.Errorf("could not get OAuth token: %v", err)
+		return util.Errorf("could not get OAuth client: %v", err)
+	}
+
+	svc, err := compute.New(oauthClient)
+	if err != nil {
+		return util.Errorf("could not get Compute service: %v", err)
 	}
 	g.computeService = svc
 
@@ -124,6 +129,7 @@ func (g *Google) PrintStatus() {
 	rule, err := lookupForwardingRule(g.computeService, g.project, g.region)
 	if err != nil {
 		fmt.Println("Forwarding Rule: not found:", err)
+		return
 	}
 	fmt.Printf("Forwarding Rule: %s:%d\n", rule.IPAddress, g.context.Port)
 }

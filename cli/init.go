@@ -39,12 +39,6 @@ func runInit(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	err = driver.Init()
-	if err != nil {
-		log.Errorf("failed to initialized driver: %v", err)
-		return
-	}
-
 	nodes, err := docker.ListCockroachNodes()
 	if err != nil {
 		log.Errorf("failed to get list of existing cockroach nodes: %v", err)

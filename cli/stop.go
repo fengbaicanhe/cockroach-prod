@@ -39,12 +39,6 @@ func runStop(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	err = driver.Init()
-	if err != nil {
-		log.Errorf("failed to initialized driver: %v", err)
-		return
-	}
-
 	// TODO(marc): only get nodes in state "Running".
 	nodes, err := docker.ListCockroachNodes()
 	if err != nil {

@@ -68,13 +68,40 @@ const (
 	redirectURI  = "urn:ietf:wg:oauth:2.0:oob"
 )
 
-func newGCEService(authTokenPath string) (*compute.Service, error) {
-	client, err := newOauthClient(authTokenPath)
+// gobCache implements oauth.Cache.
+// Its value is the full path name to the cache file.
+// This is pretty much oauth.CacheFile, but with gob encoding.
+type gobCache string
+
+// Token returns the cached token value, or an error if none is found.
+func (f gobCache) Token() (*oauth.Token, error) {
+	file, err := os.Open(string(f))
 	if err != nil {
 		return nil, err
 	}
-	service, err := compute.New(client)
-	return service, err
+	defer file.Close()
+	tok := &oauth.Token{}
+	if err = gob.NewDecoder(file).Decode(tok); err != nil {
+		return nil, err
+	}
+	return tok, nil
+}
+
+// PutToken stores the given token in the cache.
+// TODO(marc): we should write to a tmp file and rename in case we error out.
+func (f gobCache) PutToken(tok *oauth.Token) error {
+	file, err := os.OpenFile(string(f), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	if err := gob.NewEncoder(file).Encode(tok); err != nil {
+		file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func newOauthClient(authTokenPath string) (*http.Client, error) {
@@ -84,69 +111,58 @@ func newOauthClient(authTokenPath string) (*http.Client, error) {
 		Scope:        compute.ComputeScope,
 		AuthURL:      authURL,
 		TokenURL:     tokenURL,
+		RedirectURL:  redirectURI,
+		TokenCache:   gobCache(authTokenPath),
+		// Needed for refresh tokens:
+		AccessType:     "offline",
+		ApprovalPrompt: "force",
 	}
 
-	token, err := getToken(authTokenPath, config)
-	if err != nil {
-		return nil, err
-	}
-
-	t := oauth.Transport{
-		Token:     token,
+	transport := &oauth.Transport{
 		Config:    config,
 		Transport: http.DefaultTransport,
 	}
-	return t.Client(), nil
-}
 
-func getToken(tokenPath string, config *oauth.Config) (*oauth.Token, error) {
-	token, err := tokenFromCache(tokenPath)
-	if err == nil {
-		return token, nil
-	}
-
-	token, err = tokenFromWeb(config)
+	err := initTransport(transport)
 	if err != nil {
 		return nil, err
 	}
-
-	saveToken(tokenPath, token)
-	return token, nil
+	return transport.Client(), nil
 }
 
-func tokenFromCache(tokenPath string) (*oauth.Token, error) {
-	f, err := os.Open(tokenPath)
-	if err != nil {
-		return nil, err
+func initTransport(transport *oauth.Transport) error {
+	// First: check the cache.
+	if token, err := transport.Config.TokenCache.Token(); err == nil {
+		// We have a token.
+		transport.Token = token
+		if !token.Expired() {
+			return nil
+		}
+
+		// Token is expired, attempt a refresh.
+		// TODO(marc): we should check whether it expires soon (eg: 5 minutes).
+		err := transport.Refresh()
+		if err == nil {
+			return nil
+		}
+		log.Infof("token expired and refresh failed, requesting new one")
 	}
-	token := new(oauth.Token)
-	err = gob.NewDecoder(f).Decode(token)
-	return token, err
-}
 
-func tokenFromWeb(config *oauth.Config) (*oauth.Token, error) {
+	// Get a new token. Pops up a browser window (hopefully).
 	randState := fmt.Sprintf("st%d", time.Now().UnixNano())
-
-	config.RedirectURL = redirectURI
-	authURL := config.AuthCodeURL(randState)
-
-	log.Info("Opening auth URL in browser.")
-	log.Info(authURL)
-	log.Info("If the URL doesn't open please open it manually and copy the code here.")
+	authURL := transport.Config.AuthCodeURL(randState)
+	log.Infof("Opening auth URL in browser: %s", authURL)
+	log.Infof("If the URL doesn't open please open it manually and copy the code here.")
 	openURL(authURL)
 	code := getCodeFromStdin()
 
-	log.Infof("Got code: %s", code)
-
-	t := &oauth.Transport{
-		Config:    config,
-		Transport: http.DefaultTransport,
-	}
-	_, err := t.Exchange(code)
+	_, err := transport.Exchange(code)
 	if err != nil {
-		return nil, err
+		log.Infof("problem exchanging code: %v", err)
+		return err
 	}
-	return t.Token, nil
+
+	return nil
 }
 
 func getCodeFromStdin() string {
@@ -164,15 +180,4 @@ func openURL(url string) {
 			return
 		}
 	}
-}
-
-func saveToken(tokenPath string, token *oauth.Token) {
-	log.Infof("Saving token in %v", tokenPath)
-	f, err := os.Create(tokenPath)
-	if err != nil {
-		log.Infof("Warning: failed to cache oauth token: %v", err)
-		return
-	}
-	defer f.Close()
-	gob.NewEncoder(f).Encode(token)
 }

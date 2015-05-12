@@ -30,12 +30,14 @@ import (
 )
 
 const (
-	firewallName       = "cockroach"
 	cockroachProtocol  = "tcp"
 	allIPAddresses     = "0.0.0.0/0"
-	forwardingRuleName = "cockroach-lb-rule"
-	healthCheckName    = "cockroach-lb-healthcheck"
-	targetPoolName     = "cockroach-lb-targetpool"
+	firewallRuleName   = "cockroach-firewall"
+	forwardingRuleName = "cockroach-forward-rule"
+	healthCheckName    = "cockroach-health-check"
+	backendServiceName = "cockroach-backend"
+	urlMapName         = "cockroach-url-map"
+	httpProxyName      = "cockroach-proxy"
 	// TODO(marc): some of these should be pulled from cockroach/base/Context or similar.
 	healthCheckPath = "/_status/"
 )
@@ -75,14 +77,22 @@ func (g *Google) getInstanceDetails(machine string) (*compute.Instance, error) {
 	return g.computeService.Instances.Get(g.project, g.zone, machine).Do()
 }
 
-// Create the firewall rule. Noop if it exists.
-func (g *Google) createFirewallRule() error {
-	if _, err := g.computeService.Firewalls.Get(g.project, firewallName).Do(); err == nil {
-		return nil
+// getFirewallRule looks for the cockroach firewall rule and returns it.
+func (g *Google) getFirewallRule() (*compute.Firewall, error) {
+	return g.computeService.Firewalls.Get(g.project, firewallRuleName).Do()
+}
+
+// createFirewallRule creates the cockroach firewall if it does not exist.
+// It returns its resource link.
+func (g *Google) createFirewallRule() (string, error) {
+	if rule, err := g.getFirewallRule(); err == nil {
+		log.Infof("found FirewallRule %s: %s", firewallRuleName, rule.SelfLink)
+		return rule.SelfLink, nil
 	}
+
 	op, err := g.computeService.Firewalls.Insert(g.project,
 		&compute.Firewall{
-			Name: firewallName,
+			Name: firewallRuleName,
 			Allowed: []*compute.FirewallAllowed{
 				{
 					IPProtocol: cockroachProtocol,
@@ -96,123 +106,172 @@ func (g *Google) createFirewallRule() error {
 			},
 		}).Do()
 	if err != nil {
-		return err
+		return "", err
 	}
-	return g.waitForOperation(op)
+	if err = g.waitForOperation(op); err != nil {
+		return "", err
+	}
+	log.Infof("created FirewallRule %s: %s", firewallRuleName, op.TargetLink)
+	return op.TargetLink, nil
 }
 
-// Lookup forwarding rule. For now, we use "network forwarding" instead
-// "HTTP/S load balancing" which is still beta.
-func (g *Google) lookupForwardingRule() (*compute.ForwardingRule, error) {
-	return g.computeService.ForwardingRules.Get(g.project, g.region, forwardingRuleName).Do()
+// getForwardingRule looks for the cockroach forwarding rule.
+func (g *Google) getForwardingRule() (*compute.ForwardingRule, error) {
+	return g.computeService.GlobalForwardingRules.Get(g.project, forwardingRuleName).Do()
 }
 
-// Create health check, target pool, and forward rule. In that order.
-func (g *Google) createForwardingRule() error {
-	// Create HTTP Health checks.
-	var healthCheckLink string
-	if check, err := g.computeService.HttpHealthChecks.Get(g.project, healthCheckName).Do(); err == nil {
-		healthCheckLink = check.SelfLink
-		log.Infof("found HealthCheck %s: %s", healthCheckName, healthCheckLink)
-	} else {
-		op, err := g.computeService.HttpHealthChecks.Insert(g.project,
-			&compute.HttpHealthCheck{
-				Name:               healthCheckName,
-				Port:               g.context.Port,
-				RequestPath:        healthCheckPath,
-				CheckIntervalSec:   2,
-				TimeoutSec:         1,
-				HealthyThreshold:   2,
-				UnhealthyThreshold: 2,
-			}).Do()
-		if err != nil {
-			return err
-		}
-		if err = g.waitForOperation(op); err != nil {
-			return err
-		}
-		healthCheckLink = op.TargetLink
-		log.Infof("created HealthCheck %s: %s", healthCheckName, healthCheckLink)
+// createForwardingRule creates the cockroach forwarding rule if it does not exist.
+// Requires a resolvable target link. It should be a HTTP Proxy.
+// Returns the forwarding rule resource link.
+func (g *Google) createForwardingRule(targetLink string) (string, error) {
+	if rule, err := g.getForwardingRule(); err == nil {
+		log.Infof("found ForwardingRule %s: %s", forwardingRuleName, rule.SelfLink)
+		return rule.SelfLink, nil
 	}
 
-	// Create target pool.
-	var targetPoolLink string
-	if pool, err := g.computeService.TargetPools.Get(g.project, g.region, targetPoolName).Do(); err == nil {
-		targetPoolLink = pool.SelfLink
-		log.Infof("found TargetPool %s: %s", targetPoolName, targetPoolLink)
-	} else {
-		op, err := g.computeService.TargetPools.Insert(g.project, g.region,
-			&compute.TargetPool{
-				Name:            targetPoolName,
-				SessionAffinity: "NONE",
-				HealthChecks:    []string{healthCheckLink},
-			}).Do()
-		if err != nil {
-			return err
-		}
-		if err = g.waitForOperation(op); err != nil {
-			return err
-		}
-		targetPoolLink = op.TargetLink
-		log.Infof("created TargetPool %s: %s", targetPoolName, targetPoolLink)
+	op, err := g.computeService.GlobalForwardingRules.Insert(g.project,
+		&compute.ForwardingRule{
+			Name:       forwardingRuleName,
+			IPProtocol: cockroachProtocol,
+			PortRange:  fmt.Sprintf("%d", g.context.Port),
+			Target:     targetLink,
+		}).Do()
+	if err != nil {
+		return "", err
+	}
+	if err = g.waitForOperation(op); err != nil {
+		return "", err
 	}
 
-	// Create forwarding rule.
-	var forwardingRuleLink string
-	if rule, err := g.computeService.ForwardingRules.Get(g.project, g.region, forwardingRuleName).Do(); err == nil {
-		forwardingRuleLink = rule.SelfLink
-		log.Infof("found ForwardingRule %s: %s", forwardingRuleName, forwardingRuleLink)
-	} else {
-		op, err := g.computeService.ForwardingRules.Insert(g.project, g.region,
-			&compute.ForwardingRule{
-				Name:       forwardingRuleName,
-				IPProtocol: cockroachProtocol,
-				PortRange:  fmt.Sprintf("%d", g.context.Port),
-				Target:     targetPoolLink,
-			}).Do()
-		if err != nil {
-			return err
-		}
-		if err = g.waitForOperation(op); err != nil {
-			return err
-		}
-		forwardingRuleLink = op.TargetLink
-		log.Infof("created ForwardingRule %s: %s", forwardingRuleName, forwardingRuleLink)
-	}
-
-	return nil
+	log.Infof("created ForwardingRule %s: %s", forwardingRuleName, op.TargetLink)
+	return op.TargetLink, nil
 }
 
-// Add the given instance (full resource link) to the cockroach target pool.
-func (g *Google) addTarget(instanceLink string) error {
-	op, err := g.computeService.TargetPools.AddInstance(g.project, g.region, targetPoolName,
-		&compute.TargetPoolsAddInstanceRequest{
-			Instances: []*compute.InstanceReference{
-				{
-					Instance: instanceLink,
-				},
+// getHealthCheck looks for the cockroach health check.
+func (g *Google) getHealthCheck() (*compute.HttpHealthCheck, error) {
+	return g.computeService.HttpHealthChecks.Get(g.project, healthCheckName).Do()
+}
+
+// createHealthCheck creates the cockroach health check if it does not exist.
+// Returns its resource link.
+func (g *Google) createHealthCheck() (string, error) {
+	if check, err := g.getHealthCheck(); err == nil {
+		log.Infof("found HealthCheck %s: %s", healthCheckName, check.SelfLink)
+		return check.SelfLink, nil
+	}
+
+	op, err := g.computeService.HttpHealthChecks.Insert(g.project,
+		&compute.HttpHealthCheck{
+			Name:               healthCheckName,
+			Port:               g.context.Port,
+			RequestPath:        healthCheckPath,
+			CheckIntervalSec:   2,
+			TimeoutSec:         1,
+			HealthyThreshold:   2,
+			UnhealthyThreshold: 2,
+		}).Do()
+	if err != nil {
+		return "", err
+	}
+	if err = g.waitForOperation(op); err != nil {
+		return "", err
+	}
+
+	log.Infof("created HealthCheck %s: %s", healthCheckName, op.TargetLink)
+	return op.TargetLink, nil
+}
+
+// getBackendService looks for the cockroach backend service.
+func (g *Google) getBackendService() (*compute.BackendService, error) {
+	return g.computeService.BackendServices.Get(g.project, backendServiceName).Do()
+}
+
+// createBackendService creates the cockroach backend service if it does not exist.
+// Requires a resolvable health check and instance group.
+// Returns the backend service resource link.
+func (g *Google) createBackendService(healthCheckLink, instanceGroupLink string) (string, error) {
+	if backend, err := g.getBackendService(); err == nil {
+		log.Infof("found BackendService %s: %s", backendServiceName, backend.SelfLink)
+		return backend.SelfLink, nil
+	}
+
+	op, err := g.computeService.BackendServices.Insert(g.project,
+		&compute.BackendService{
+			Name:         backendServiceName,
+			HealthChecks: []string{healthCheckLink},
+			Backends: []*compute.Backend{
+				{Group: instanceGroupLink},
 			},
 		}).Do()
 	if err != nil {
-		return err
+		return "", err
 	}
-	return g.waitForOperation(op)
+	if err = g.waitForOperation(op); err != nil {
+		return "", err
+	}
+
+	log.Infof("created BackendService %s: %s", backendServiceName, op.TargetLink)
+	return op.TargetLink, nil
 }
 
-// removes the given instance (full resource link) from the cockroach target pool.
-func (g *Google) removeTarget(instanceLink string) error {
-	op, err := g.computeService.TargetPools.RemoveInstance(g.project, g.region, targetPoolName,
-		&compute.TargetPoolsRemoveInstanceRequest{
-			Instances: []*compute.InstanceReference{
-				{
-					Instance: instanceLink,
-				},
-			},
+// getURLMap looks for the cockroach backend service.
+func (g *Google) getURLMap() (*compute.UrlMap, error) {
+	return g.computeService.UrlMaps.Get(g.project, urlMapName).Do()
+}
+
+// createURLMap creates the cockroach url map if it does not exist.
+// Requires a resolvable backend service.
+// Returns the url map resource link.
+func (g *Google) createURLMap(backendServiceLink string) (string, error) {
+	if urlMap, err := g.getURLMap(); err == nil {
+		log.Infof("found URLMap %s: %s", urlMapName, urlMap.SelfLink)
+		return urlMap.SelfLink, nil
+	}
+
+	op, err := g.computeService.UrlMaps.Insert(g.project,
+		&compute.UrlMap{
+			Name:           urlMapName,
+			DefaultService: backendServiceLink,
 		}).Do()
 	if err != nil {
-		return err
+		return "", err
 	}
-	return g.waitForOperation(op)
+	if err = g.waitForOperation(op); err != nil {
+		return "", err
+	}
+
+	log.Infof("created URLMap %s: %s", urlMapName, op.TargetLink)
+	return op.TargetLink, nil
+}
+
+// getHTTPProxy looks for the cockroach http proxy.
+func (g *Google) getHTTPProxy() (*compute.TargetHttpProxy, error) {
+	return g.computeService.TargetHttpProxies.Get(g.project, httpProxyName).Do()
+}
+
+// createHTTPProxy creates the cockroach http proxy if it does not exist.
+// Requires a resolvable url map.
+// Returns the http proxy resource link.
+func (g *Google) createHTTPProxy(urlMapLink string) (string, error) {
+	if proxy, err := g.getHTTPProxy(); err == nil {
+		log.Infof("found HTTPProxy %s: %s", httpProxyName, proxy.SelfLink)
+		return proxy.SelfLink, nil
+	}
+
+	op, err := g.computeService.TargetHttpProxies.Insert(g.project,
+		&compute.TargetHttpProxy{
+			Name:   httpProxyName,
+			UrlMap: urlMapLink,
+		}).Do()
+	if err != nil {
+		return "", err
+	}
+	if err = g.waitForOperation(op); err != nil {
+		return "", err
+	}
+
+	log.Infof("create HTTPProxy %s: %s", httpProxyName, op.TargetLink)
+	return op.TargetLink, nil
 }
 
 func errorFromOperationError(opError *compute.OperationError) error {
@@ -226,7 +285,7 @@ func errorFromOperationError(opError *compute.OperationError) error {
 }
 
 // Repeatedly poll the given operation until its status is DONE, then return its Error.
-// We determine whether it's a zone or global operation by parsing its self-link.
+// We determine whether it's a zone or global operation by parsing its resource link.
 // TODO(marc): give up after a while.
 func (g *Google) waitForOperation(op *compute.Operation) error {
 	// Early out for finished ops.

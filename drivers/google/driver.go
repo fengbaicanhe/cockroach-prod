@@ -20,8 +20,10 @@ package google
 import (
 	"fmt"
 
-	// The package is called "compute" but is in v1. Specify import name for clarify.
+	// The package names are "compute", "resourceviews", etc... but we specify them
+	// for clarify.
 	compute "google.golang.org/api/compute/v1"
+	resourceviews "google.golang.org/api/resourceviews/v1beta2"
 
 	"github.com/cockroachdb/cockroach-prod/base"
 	"github.com/cockroachdb/cockroach-prod/docker"
@@ -46,9 +48,11 @@ type Google struct {
 	zone    string
 
 	// Created at Init() time.
-	// Most methods using the compute service can be found
-	// in compute.go
+	// Most methods using the compute service can be found in compute.go
 	computeService *compute.Service
+	// Methods for instance groups (the API still calls them "resource views")
+	// are in instance_groups.go
+	instanceGroupsService *resourceviews.Service
 }
 
 // config contains the google-specific fields of the docker-machine config.
@@ -107,11 +111,17 @@ func (g *Google) Init() error {
 		return util.Errorf("could not get OAuth client: %v", err)
 	}
 
-	svc, err := compute.New(oauthClient)
+	cSvc, err := compute.New(oauthClient)
 	if err != nil {
 		return util.Errorf("could not get Compute service: %v", err)
 	}
-	g.computeService = svc
+	g.computeService = cSvc
+
+	ivSvc, err := resourceviews.New(oauthClient)
+	if err != nil {
+		return util.Errorf("could not get Compute service: %v", err)
+	}
+	g.instanceGroupsService = ivSvc
 
 	if err = g.checkProjectExists(); err != nil {
 		return util.Errorf("invalid project %q: %v", g.project, err)
@@ -133,7 +143,7 @@ func (g *Google) DockerMachineCreateArgs() []string {
 
 // PrintStatus prints the load balancer address to stdout.
 func (g *Google) PrintStatus() {
-	rule, err := g.lookupForwardingRule()
+	rule, err := g.getForwardingRule()
 	if err != nil {
 		fmt.Println("Forwarding Rule: not found:", err)
 		return
@@ -166,7 +176,7 @@ func (g *Google) GetNodeConfig(name string) (*drivers.HostConfig, error) {
 	driverCfg.link = instance.SelfLink
 
 	// Lookup the forwarding rule.
-	rule, err := g.lookupForwardingRule()
+	rule, err := g.getForwardingRule()
 	if err != nil {
 		return nil, err
 	}
@@ -176,30 +186,69 @@ func (g *Google) GetNodeConfig(name string) (*drivers.HostConfig, error) {
 }
 
 // AfterFirstNode runs any steps needed after the first node was created.
+// The cloud compute HTTP load balancer setup is really convoluted:
+// https://cloud.google.com/compute/docs/load-balancing/http/#fundamentals
+// Things we create (children must be created before their parents):
+// - firewall rule
+// - global forwarding rule
+//   - HTTP proxy
+//     - URL map
+//       - backend service
+//         - health check
+//         - instance group
 func (g *Google) AfterFirstNode() error {
-	log.Info("adding firewall rule")
-	err := g.createFirewallRule()
+	log.Info("creating firewall rule")
+	_, err := g.createFirewallRule()
 	if err != nil {
 		return util.Errorf("failed to create firewall rule: %v", err)
 	}
 
+	log.Info("creating instance group")
+	instanceGroupLink, err := g.createInstanceGroup()
+	if err != nil {
+		return util.Errorf("failed to create instance group: %v", err)
+	}
+
+	log.Info("creating health check")
+	healthCheckLink, err := g.createHealthCheck()
+	if err != nil {
+		return util.Errorf("failed to create health check: %v", err)
+	}
+
+	log.Info("creating backend service")
+	backendServiceLink, err := g.createBackendService(healthCheckLink, instanceGroupLink)
+	if err != nil {
+		return util.Errorf("failed to create backend service: %v", err)
+	}
+
+	log.Info("creating URL map")
+	urlMapLink, err := g.createURLMap(backendServiceLink)
+	if err != nil {
+		return util.Errorf("failed to create URL map: %v", err)
+	}
+
+	log.Info("creating HTTP proxy")
+	httpProxyLink, err := g.createHTTPProxy(urlMapLink)
+	if err != nil {
+		return util.Errorf("failed to create HTTP proxy: %v", err)
+	}
+
 	log.Info("creating forwarding rule")
-	err = g.createForwardingRule()
+	_, err = g.createForwardingRule(httpProxyLink)
 	if err != nil {
 		return util.Errorf("failed to create forwarding rule: %v", err)
 	}
-
 	return nil
 }
 
 // StartNode adds the node to the load balancer.
 func (g *Google) StartNode(name string, cfg *drivers.HostConfig) error {
-	log.Infof("Adding node %s to load balancer", name)
-	return g.addTarget(cfg.Driver.(*config).link)
+	log.Infof("Adding node %s to instance group", name)
+	return g.addInstanceToGroup(cfg.Driver.(*config).link)
 }
 
 // StopNode removes the node from the load balancer.
 func (g *Google) StopNode(name string, cfg *drivers.HostConfig) error {
-	log.Infof("Removing node %s from load balancer", name)
-	return g.removeTarget(cfg.Driver.(*config).link)
+	log.Infof("Removing node %s from instance group", name)
+	return g.removeInstanceFromGroup(cfg.Driver.(*config).link)
 }

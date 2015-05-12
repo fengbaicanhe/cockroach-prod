@@ -40,9 +40,23 @@ const (
 	healthCheckPath = "/_status/"
 )
 
+// computeOpError wraps a compute.OperationErrorErrors to implement error.
+type computeOpError struct {
+	compute.OperationErrorErrors
+}
+
+func (err computeOpError) Error() string {
+	return err.Code
+}
+
 // Return the base path for global objects.
 func globalBasePath(service *compute.Service, project string) string {
 	return fmt.Sprintf("%s%s/global/", service.BasePath, project)
+}
+
+// Return the base path for region objects.
+func regionBasePath(service *compute.Service, project, region string) string {
+	return fmt.Sprintf("%s%s/regions/%s/", service.BasePath, project, region)
 }
 
 // Return the base path for zone objects.
@@ -61,9 +75,11 @@ func (g *Google) getInstanceDetails(machine string) (*compute.Instance, error) {
 	return g.computeService.Instances.Get(g.project, g.zone, machine).Do()
 }
 
-// Create firewall rule.
-// The API is happy inserting an existing one, so don't check for existence first.
+// Create the firewall rule. Noop if it exists.
 func (g *Google) createFirewallRule() error {
+	if _, err := g.computeService.Firewalls.Get(g.project, firewallName).Do(); err == nil {
+		return nil
+	}
 	op, err := g.computeService.Firewalls.Insert(g.project,
 		&compute.Firewall{
 			Name: firewallName,
@@ -94,54 +110,75 @@ func (g *Google) lookupForwardingRule() (*compute.ForwardingRule, error) {
 // Create health check, target pool, and forward rule. In that order.
 func (g *Google) createForwardingRule() error {
 	// Create HTTP Health checks.
-	check, err := g.computeService.HttpHealthChecks.Insert(g.project,
-		&compute.HttpHealthCheck{
-			Name:               healthCheckName,
-			Port:               g.context.Port,
-			RequestPath:        healthCheckPath,
-			CheckIntervalSec:   2,
-			TimeoutSec:         1,
-			HealthyThreshold:   2,
-			UnhealthyThreshold: 2,
-		}).Do()
-	if err != nil {
-		return err
+	var healthCheckLink string
+	if check, err := g.computeService.HttpHealthChecks.Get(g.project, healthCheckName).Do(); err == nil {
+		healthCheckLink = check.SelfLink
+		log.Infof("found HealthCheck %s: %s", healthCheckName, healthCheckLink)
+	} else {
+		op, err := g.computeService.HttpHealthChecks.Insert(g.project,
+			&compute.HttpHealthCheck{
+				Name:               healthCheckName,
+				Port:               g.context.Port,
+				RequestPath:        healthCheckPath,
+				CheckIntervalSec:   2,
+				TimeoutSec:         1,
+				HealthyThreshold:   2,
+				UnhealthyThreshold: 2,
+			}).Do()
+		if err != nil {
+			return err
+		}
+		if err = g.waitForOperation(op); err != nil {
+			return err
+		}
+		healthCheckLink = op.TargetLink
+		log.Infof("created HealthCheck %s: %s", healthCheckName, healthCheckLink)
 	}
-	if err = g.waitForOperation(check); err != nil {
-		return err
-	}
-	log.Infof("created HealthCheck %s: %s", healthCheckName, check.TargetLink)
 
 	// Create target pool.
-	pool, err := g.computeService.TargetPools.Insert(g.project, g.region,
-		&compute.TargetPool{
-			Name:            targetPoolName,
-			SessionAffinity: "NONE",
-			HealthChecks:    []string{check.TargetLink},
-		}).Do()
-	if err != nil {
-		return err
+	var targetPoolLink string
+	if pool, err := g.computeService.TargetPools.Get(g.project, g.region, targetPoolName).Do(); err == nil {
+		targetPoolLink = pool.SelfLink
+		log.Infof("found TargetPool %s: %s", targetPoolName, targetPoolLink)
+	} else {
+		op, err := g.computeService.TargetPools.Insert(g.project, g.region,
+			&compute.TargetPool{
+				Name:            targetPoolName,
+				SessionAffinity: "NONE",
+				HealthChecks:    []string{healthCheckLink},
+			}).Do()
+		if err != nil {
+			return err
+		}
+		if err = g.waitForOperation(op); err != nil {
+			return err
+		}
+		targetPoolLink = op.TargetLink
+		log.Infof("created TargetPool %s: %s", targetPoolName, targetPoolLink)
 	}
-	if err = g.waitForOperation(pool); err != nil {
-		return err
-	}
-	log.Infof("created TargetPool %s: %s", targetPoolName, pool.TargetLink)
 
 	// Create forwarding rule.
-	rule, err := g.computeService.ForwardingRules.Insert(g.project, g.region,
-		&compute.ForwardingRule{
-			Name:       forwardingRuleName,
-			IPProtocol: cockroachProtocol,
-			PortRange:  fmt.Sprintf("%d", g.context.Port),
-			Target:     pool.TargetLink,
-		}).Do()
-	if err != nil {
-		return err
+	var forwardingRuleLink string
+	if rule, err := g.computeService.ForwardingRules.Get(g.project, g.region, forwardingRuleName).Do(); err == nil {
+		forwardingRuleLink = rule.SelfLink
+		log.Infof("found ForwardingRule %s: %s", forwardingRuleName, forwardingRuleLink)
+	} else {
+		op, err := g.computeService.ForwardingRules.Insert(g.project, g.region,
+			&compute.ForwardingRule{
+				Name:       forwardingRuleName,
+				IPProtocol: cockroachProtocol,
+				PortRange:  fmt.Sprintf("%d", g.context.Port),
+				Target:     targetPoolLink,
+			}).Do()
+		if err != nil {
+			return err
+		}
+		if err = g.waitForOperation(op); err != nil {
+			return err
+		}
+		forwardingRuleLink = op.TargetLink
+		log.Infof("created ForwardingRule %s: %s", forwardingRuleName, forwardingRuleLink)
 	}
-	if err = g.waitForOperation(rule); err != nil {
-		return err
-	}
-	log.Infof("created ForwardingRule %s: %s", forwardingRuleName, rule.TargetLink)
 
 	return nil
 }
@@ -185,7 +222,7 @@ func errorFromOperationError(opError *compute.OperationError) error {
 	if len(opError.Errors) == 0 {
 		return nil
 	}
-	return util.Errorf("operation error: %+v", opError.Errors[0])
+	return computeOpError{*opError.Errors[0]}
 }
 
 // Repeatedly poll the given operation until its status is DONE, then return its Error.
@@ -201,14 +238,23 @@ func (g *Google) waitForOperation(op *compute.Operation) error {
 		return errorFromOperationError(op.Error)
 	}
 
-	globalPath := globalBasePath(g.computeService, g.project)
-	isGlobal := strings.HasPrefix(op.SelfLink, globalPath)
+	var isGlobal, isRegion bool
+	if strings.HasPrefix(op.SelfLink, globalBasePath(g.computeService, g.project)) {
+		isGlobal = true
+	} else if strings.HasPrefix(op.SelfLink, regionBasePath(g.computeService, g.project, g.region)) {
+		isRegion = true
+	} else if strings.HasPrefix(op.SelfLink, zoneBasePath(g.computeService, g.project, g.zone)) {
+	} else {
+		log.Fatalf("unsupported operation (expect global, region, or zone): %+v", op)
+	}
 
 	for {
 		var liveOp *compute.Operation
 		var err error
 		if isGlobal {
 			liveOp, err = g.computeService.GlobalOperations.Get(g.project, op.Name).Do()
+		} else if isRegion {
+			liveOp, err = g.computeService.RegionOperations.Get(g.project, g.region, op.Name).Do()
 		} else {
 			liveOp, err = g.computeService.ZoneOperations.Get(g.project, g.zone, op.Name).Do()
 		}
@@ -217,11 +263,11 @@ func (g *Google) waitForOperation(op *compute.Operation) error {
 			return util.Errorf("could not lookup operation %+v: %s", op, err)
 		}
 		if log.V(1) {
-			log.Infof("Operation %s %s: %s, err=%v", op.OperationType, op.TargetLink,
-				op.Status, errorFromOperationError(op.Error))
+			log.Infof("Operation %s %s: %s, err=%v", liveOp.OperationType, liveOp.TargetLink,
+				liveOp.Status, errorFromOperationError(liveOp.Error))
 		}
 		if liveOp.Status == "DONE" {
-			return errorFromOperationError(op.Error)
+			return errorFromOperationError(liveOp.Error)
 		}
 		time.Sleep(time.Second)
 	}

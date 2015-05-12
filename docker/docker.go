@@ -89,7 +89,9 @@ func RunDockerStart(driver drivers.Driver, nodeName string, settings *drivers.Ho
 		"start",
 		"--insecure",
 		"--stores=ssd=/data",
-		fmt.Sprintf("--addr=%s:%d", settings.Driver.IPAddress(), port),
+		// TODO(marc): we may need ip:port for TLS. Use settings.Driver.IPAddress()
+		// For now, it causes problems with GCE's network forwarding, so skip it.
+		fmt.Sprintf("--addr=:%d", port),
 		fmt.Sprintf("--gossip=%s:%d", settings.Driver.GossipAddress(), port),
 	)
 	log.Infof("running: docker %s", strings.Join(args, " "))

@@ -33,6 +33,9 @@ import (
 const (
 	dockerMachineDriverName = "google"
 	googleDataDir           = "/home/docker-user/data"
+	// for now, we always run in zone <region>-a.
+	// TODO(marc): allow custom value.
+	zoneSuffix = "-a"
 )
 
 // Google implements a driver for Google Compute Engine.
@@ -40,8 +43,11 @@ type Google struct {
 	context *base.Context
 	region  string
 	project string
+	zone    string
 
 	// Created at Init() time.
+	// Most methods using the compute service can be found
+	// in compute.go
 	computeService *compute.Service
 }
 
@@ -79,6 +85,7 @@ func NewDriver(context *base.Context, region string) *Google {
 		context: context,
 		region:  region,
 		project: context.GCEProject,
+		zone:    region + zoneSuffix,
 	}
 }
 
@@ -106,7 +113,7 @@ func (g *Google) Init() error {
 	}
 	g.computeService = svc
 
-	if err = checkProjectExists(g.computeService, g.project); err != nil {
+	if err = g.checkProjectExists(); err != nil {
 		return util.Errorf("invalid project %q: %v", g.project, err)
 	}
 
@@ -126,7 +133,7 @@ func (g *Google) DockerMachineCreateArgs() []string {
 
 // PrintStatus prints the load balancer address to stdout.
 func (g *Google) PrintStatus() {
-	rule, err := lookupForwardingRule(g.computeService, g.project, g.region)
+	rule, err := g.lookupForwardingRule()
 	if err != nil {
 		fmt.Println("Forwarding Rule: not found:", err)
 		return
@@ -150,7 +157,7 @@ func (g *Google) GetNodeConfig(name string) (*drivers.HostConfig, error) {
 	driverCfg := cfg.Driver.(*config)
 
 	// Lookup the instance, there are a few fields docker-machine does not save.
-	instance, err := getInstanceDetails(g.computeService, g.project, driverCfg.Zone, driverCfg.MachineName)
+	instance, err := g.getInstanceDetails(driverCfg.MachineName)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +166,7 @@ func (g *Google) GetNodeConfig(name string) (*drivers.HostConfig, error) {
 	driverCfg.link = instance.SelfLink
 
 	// Lookup the forwarding rule.
-	rule, err := lookupForwardingRule(g.computeService, g.project, g.region)
+	rule, err := g.lookupForwardingRule()
 	if err != nil {
 		return nil, err
 	}
@@ -171,25 +178,28 @@ func (g *Google) GetNodeConfig(name string) (*drivers.HostConfig, error) {
 // AfterFirstNode runs any steps needed after the first node was created.
 func (g *Google) AfterFirstNode() error {
 	log.Info("adding firewall rule")
-	err := createFirewallRule(g.computeService, g.project, g.context.Port)
+	err := g.createFirewallRule()
 	if err != nil {
 		return util.Errorf("failed to create firewall rule: %v", err)
 	}
 
 	log.Info("creating forwarding rule")
-	err = createForwardingRule(g.computeService, g.project, g.region, g.context.Port)
+	err = g.createForwardingRule()
 	if err != nil {
 		return util.Errorf("failed to create forwarding rule: %v", err)
 	}
+
 	return nil
 }
 
 // StartNode adds the node to the load balancer.
 func (g *Google) StartNode(name string, cfg *drivers.HostConfig) error {
-	return addTarget(g.computeService, g.project, g.region, cfg.Driver.(*config).link)
+	log.Infof("Adding node %s to load balancer", name)
+	return g.addTarget(cfg.Driver.(*config).link)
 }
 
 // StopNode removes the node from the load balancer.
 func (g *Google) StopNode(name string, cfg *drivers.HostConfig) error {
-	return removeTarget(g.computeService, g.project, g.region, cfg.Driver.(*config).link)
+	log.Infof("Removing node %s from load balancer", name)
+	return g.removeTarget(cfg.Driver.(*config).link)
 }

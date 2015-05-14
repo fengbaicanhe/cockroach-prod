@@ -43,6 +43,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -90,7 +91,15 @@ func (f gobCache) Token() (*oauth.Token, error) {
 // PutToken stores the given token in the cache.
 // TODO(marc): we should write to a tmp file and rename in case we error out.
 func (f gobCache) PutToken(tok *oauth.Token) error {
-	file, err := os.OpenFile(string(f), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	filename := string(f)
+	// Create the parent directory if necessary.
+	parent := filepath.Dir(filename)
+	err := os.MkdirAll(parent, 0700)
+	if err != nil {
+		return err
+	}
+
+	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}

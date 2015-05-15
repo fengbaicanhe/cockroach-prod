@@ -48,7 +48,7 @@ import (
 	"time"
 
 	"code.google.com/p/goauth2/oauth"
-	"github.com/docker/machine/log"
+	"github.com/cockroachdb/cockroach/util/log"
 	compute "google.golang.org/api/compute/v1"
 )
 

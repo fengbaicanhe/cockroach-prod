@@ -22,7 +22,10 @@ import (
 	"reflect"
 
 	"github.com/cockroachdb/cockroach-prod/base"
+	"github.com/spf13/pflag"
 )
+
+var _ pflag.Value = pflagValue{}
 
 // pflagValue wraps flag.Value and implements the extra methods of the
 // pflag.Value interface.

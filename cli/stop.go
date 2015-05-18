@@ -27,7 +27,7 @@ var stopCmd = &cobra.Command{
 	Use:   "stop [<node 1> <node2>]",
 	Short: "stop nodes\n",
 	Long: `
-Stop specified nodes, or all if none passed. This stops the actual cloud instances.
+Stop specified nodes, or all if blank. This stops the actual cloud instances.
 `,
 	Run: runStop,
 }

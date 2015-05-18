@@ -27,7 +27,7 @@ var startCmd = &cobra.Command{
 	Use:   "start [<node 1> <node2>]",
 	Short: "start nodes",
 	Long: `
-Start specified nodes, or all if none passed. They must have been previously added and stopped.
+Start specified nodes, or all if blank. They must have been previously added and stopped.
 `,
 	Run: runStart,
 }

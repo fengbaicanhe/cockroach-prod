@@ -48,7 +48,7 @@ func runStop(cmd *cobra.Command, args []string) {
 			return
 		}
 		if len(nodes) == 0 {
-			log.Errorf("no existing cockroach nodes detected, this means there is probably no existing cluster")
+			log.Errorf("no existing cockroach nodes detected, does the cluster exist?")
 			return
 		}
 	} else {

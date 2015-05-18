@@ -133,6 +133,4 @@ func (g *Google) waitForInstanceGroupOperation(op *resourceviews.Operation) erro
 		}
 		time.Sleep(time.Second)
 	}
-
-	return nil
 }

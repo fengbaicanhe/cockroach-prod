@@ -24,10 +24,10 @@ import (
 )
 
 var stopCmd = &cobra.Command{
-	Use:   "stop",
-	Short: "stop all nodes\n",
+	Use:   "stop [<node> ... <node>]",
+	Short: "stop nodes\n",
 	Long: `
-Stop all nodes. This stops the actual cloud instances.
+Stop specified nodes, or all if blank. This stops the actual cloud instances.
 `,
 	Run: runStop,
 }
@@ -39,15 +39,21 @@ func runStop(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	// TODO(marc): only get nodes in state "Running".
-	nodes, err := docker.ListCockroachNodes()
-	if err != nil {
-		log.Errorf("failed to get list of existing cockroach nodes: %v", err)
-		return
-	}
-	if len(nodes) == 0 {
-		log.Errorf("no existing cockroach nodes detected, this means there is probably no existing cluster")
-		return
+	var nodes []string
+	if len(args) == 0 {
+		// TODO(marc): only get nodes in state "Running".
+		nodes, err = docker.ListCockroachNodes()
+		if err != nil {
+			log.Errorf("failed to get list of existing cockroach nodes: %v", err)
+			return
+		}
+		if len(nodes) == 0 {
+			log.Errorf("no existing cockroach nodes detected, does the cluster exist?")
+			return
+		}
+	} else {
+		// We let docker-machine dump errors if nodes do not exist.
+		nodes = args
 	}
 
 	for _, nodeName := range nodes {

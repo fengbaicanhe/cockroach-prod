@@ -70,7 +70,7 @@ func AddOneNode(driver drivers.Driver) error {
 		return util.Errorf("failed to get list of existing cockroach nodes: %v", err)
 	}
 	if len(nodes) == 0 {
-		return util.Errorf("no existing cockroach nodes detected, this means there is probably no existing cluster")
+		return util.Errorf("no existing cockroach nodes detected, does the cluster exist?")
 	}
 
 	largestIndex, err := docker.GetLargestNodeIndex(nodes)

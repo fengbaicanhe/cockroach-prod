@@ -89,9 +89,8 @@ func RunDockerStart(driver drivers.Driver, nodeName string, settings *drivers.Ho
 		"start",
 		"--insecure",
 		"--stores=ssd=/data",
-		// TODO(marc): we may need ip:port for TLS. Use settings.Driver.IPAddress()
-		// For now, it causes problems with GCE's network forwarding, so skip it.
-		fmt.Sprintf("--addr=:%d", port),
+		// --addr must be an address reachable by other nodes.
+		fmt.Sprintf("--addr=%s:%d", settings.Driver.IPAddress(), port),
 		// TODO(marc): remove localhost once we serve /_status/ before
 		// joining the gossip network.
 		fmt.Sprintf("--gossip=localhost:%d,http-lb=%s:%d", port, settings.Driver.GossipAddress(), port),

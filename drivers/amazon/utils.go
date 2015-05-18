@@ -17,10 +17,7 @@
 
 package amazon
 
-import (
-	"github.com/awslabs/aws-sdk-go/aws"
-	"github.com/cockroachdb/cockroach/util"
-)
+import "github.com/awslabs/aws-sdk-go/aws"
 
 // LoadAWSCredentials loads the credentials using the AWS api. This automatically
 // loads from ENV, or from the .aws/credentials file.
@@ -28,7 +25,7 @@ import (
 func LoadAWSCredentials() (string, string, error) {
 	creds, err := aws.DefaultCreds().Credentials()
 	if err != nil {
-		return "", "", util.Errorf("could not load AWS credentials: %s", err)
+		return "", "", err
 	}
 
 	return creds.AccessKeyID, creds.SecretAccessKey, nil

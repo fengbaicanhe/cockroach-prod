@@ -42,7 +42,7 @@ func runStart(cmd *cobra.Command, args []string) {
 	var nodes []string
 	if len(args) == 0 {
 		// TODO(marc): only get nodes in state "Stopped".
-		nodes, err := docker.ListCockroachNodes()
+		nodes, err = docker.ListCockroachNodes()
 		if err != nil {
 			log.Errorf("failed to get list of existing cockroach nodes: %v", err)
 			return

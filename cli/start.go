@@ -24,10 +24,10 @@ import (
 )
 
 var startCmd = &cobra.Command{
-	Use:   "start",
-	Short: "start all nodes",
+	Use:   "start [<node 1> <node2>]",
+	Short: "start nodes",
 	Long: `
-Start all nodes. They must have been previously added and stopped.
+Start specified nodes, or all if none passed. They must have been previously added and stopped.
 `,
 	Run: runStart,
 }
@@ -39,15 +39,21 @@ func runStart(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	// TODO(marc): only get nodes in state "Stopped".
-	nodes, err := docker.ListCockroachNodes()
-	if err != nil {
-		log.Errorf("failed to get list of existing cockroach nodes: %v", err)
-		return
-	}
-	if len(nodes) == 0 {
-		log.Errorf("no existing cockroach nodes detected, this means there is probably no existing cluster")
-		return
+	var nodes []string
+	if len(args) == 0 {
+		// TODO(marc): only get nodes in state "Stopped".
+		nodes, err := docker.ListCockroachNodes()
+		if err != nil {
+			log.Errorf("failed to get list of existing cockroach nodes: %v", err)
+			return
+		}
+		if len(nodes) == 0 {
+			log.Errorf("no existing cockroach nodes detected, this means there is probably no existing cluster")
+			return
+		}
+	} else {
+		// We let docker-machine dump errors if nodes do not exist.
+		nodes = args
 	}
 
 	for _, nodeName := range nodes {

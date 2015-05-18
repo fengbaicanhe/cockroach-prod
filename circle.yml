@@ -1,0 +1,6 @@
+test:
+  override:
+    # CircleCI's ~/.gitconfig rewrites https URIs to ssh, which offends
+    # `go get`'s delicate sensibilities (in the absence of `-f`). We override
+    # $HOME so git can't find that troublesome .gitconfig.
+    - make HOME=

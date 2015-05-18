@@ -142,19 +142,14 @@ func newOauthClient(authTokenPath string) (*http.Client, error) {
 func initTransport(transport *oauth.Transport) error {
 	// First: check the cache.
 	if token, err := transport.Config.TokenCache.Token(); err == nil {
-		// We have a token.
+		// We have a token, refresh it. The lifetime is 1h, so we always
+		// refresh to ensure lengthy commands do not time out.
 		transport.Token = token
-		if !token.Expired() {
-			return nil
-		}
-
-		// Token is expired, attempt a refresh.
-		// TODO(marc): we should check whether it expires soon (eg: 5 minutes).
 		err := transport.Refresh()
 		if err == nil {
 			return nil
 		}
-		log.Infof("token expired and refresh failed, requesting new one")
+		log.Infof("token refresh failed, requesting new one")
 	}
 
 	// Get a new token. Pops up a browser window (hopefully).

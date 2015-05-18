@@ -1,0 +1,18 @@
+{
+    "code.google.com/p/goauth2/oauth": "afe77d958c70",
+    "github.com/awslabs/aws-sdk-go/aws": "15323f6f9596eb71b7b6ce1a9ce03430ce037e26",
+    "github.com/awslabs/aws-sdk-go/service/ec2": "15323f6f9596eb71b7b6ce1a9ce03430ce037e26",
+    "github.com/awslabs/aws-sdk-go/service/elb": "15323f6f9596eb71b7b6ce1a9ce03430ce037e26",
+    "github.com/cockroachdb/clog": "3efda75b783a341e5fa6410a1fde7c0eded6b340",
+    "github.com/cockroachdb/cockroach/util": "2cf0b401f8da2a2ef2f191ceb6e6c3343bd955bc",
+    "github.com/ghemawat/stream": "9adabcb0883a14e5a6619d13e60892e2c6417a4e",
+    "github.com/gogo/protobuf/proto": "b9e369e8ffb6773efc654ea13594566404314ee1",
+    "github.com/inconshreveable/mousetrap": "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75",
+    "github.com/spf13/cobra": "c11766b405b388c6bbafaa1c8b3ad2eaf471b7b6",
+    "github.com/spf13/pflag": "0ed81a961505a7dfaab5490049a7a324743e6f03",
+    "golang.org/x/net/context": "bb64f4dc73d4ab97978d5e1cb34515dcc570361b",
+    "google.golang.org/api/compute/v1": "d4ab0b854f8606d689612515c3d18bd3b19d7e70",
+    "google.golang.org/api/googleapi": "d4ab0b854f8606d689612515c3d18bd3b19d7e70",
+    "google.golang.org/api/resourceviews/v1beta2": "d4ab0b854f8606d689612515c3d18bd3b19d7e70",
+    "gopkg.in/yaml.v1": "9f9df34309c04878acc86042b16630b0f696e1de"
+}

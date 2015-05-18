@@ -18,42 +18,18 @@
 package amazon
 
 import (
-	"io/ioutil"
-	"os"
-	"regexp"
-
+	"github.com/awslabs/aws-sdk-go/aws"
 	"github.com/cockroachdb/cockroach/util"
 )
 
-const (
-	credentialsPath = "${HOME}/.aws/credentials"
-)
-
-var (
-	keyIDRegexp = regexp.MustCompile(`\naws_access_key_id = ([^\n]+)\n`)
-	keyRegexp   = regexp.MustCompile(`\naws_secret_access_key = ([^\n]+)\n`)
-)
-
-// LoadAWSCredentials looks for the .aws/credentials file, parses it, and returns the
-// key-id and secret-key.
+// LoadAWSCredentials loads the credentials using the AWS api. This automatically
+// loads from ENV, or from the .aws/credentials file.
+// Returns the key-id and secret-key.
 func LoadAWSCredentials() (string, string, error) {
-	credPath := os.ExpandEnv(credentialsPath)
-	contents, err := ioutil.ReadFile(credPath)
+	creds, err := aws.DefaultCreds().Credentials()
 	if err != nil {
-		return "", "", err
+		return "", "", util.Errorf("could not load AWS credentials: %s", err)
 	}
 
-	match := keyIDRegexp.FindSubmatch(contents)
-	if match == nil || len(match) != 2 {
-		return "", "", util.Errorf("could not extract aws_access_key_id from %s", credPath)
-	}
-	keyID := match[1]
-
-	match = keyRegexp.FindSubmatch(contents)
-	if match == nil || len(match) != 2 {
-		return "", "", util.Errorf("could not extract aws_secret_access_key from %s", credPath)
-	}
-	key := match[1]
-
-	return string(keyID), string(key), nil
+	return creds.AccessKeyID, creds.SecretAccessKey, nil
 }

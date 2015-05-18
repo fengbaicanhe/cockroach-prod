@@ -71,7 +71,7 @@ Creating a cockroach cluster with 3 nodes is done as follows:
 #### Prerequisites
 
 * AWS account
-* AWS credentials in `~/.aws/credentials`. See [AWS cli configuration](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-config-files) 
+* AWS credentials in `~/.aws/credentials` or environment variables. See [AWS cli configuration](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-config-files) 
 
 #### Driver
 

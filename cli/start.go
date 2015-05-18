@@ -24,7 +24,7 @@ import (
 )
 
 var startCmd = &cobra.Command{
-	Use:   "start [<node 1> <node2>]",
+	Use:   "start [<node> ... <node>]",
 	Short: "start nodes",
 	Long: `
 Start specified nodes, or all if blank. They must have been previously added and stopped.

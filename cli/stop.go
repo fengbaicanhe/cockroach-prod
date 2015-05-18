@@ -24,7 +24,7 @@ import (
 )
 
 var stopCmd = &cobra.Command{
-	Use:   "stop [<node 1> <node2>]",
+	Use:   "stop [<node> ... <node>]",
 	Short: "stop nodes\n",
 	Long: `
 Stop specified nodes, or all if blank. This stops the actual cloud instances.

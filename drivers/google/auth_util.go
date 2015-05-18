@@ -47,7 +47,7 @@ import (
 	"strings"
 	"time"
 
-	"code.google.com/p/goauth2/oauth"
+	"code.google.com/p/goauth2/oauth" // Deprecated. TODO: replace with golang.org/x/oauth2
 	"github.com/cockroachdb/cockroach/util/log"
 	compute "google.golang.org/api/compute/v1"
 )

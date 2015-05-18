@@ -77,7 +77,7 @@ Creating a cockroach cluster with 3 nodes is done as follows:
 
 Pick a region from the [list](http://docs.aws.amazon.com/general/latest/gr/rande.html#ec2_region) (eg: `us-east-1`) and invoke using:
 ```console
-$ cockroach-prod <command> --driver=aws:us-east-1
+$ cockroach-prod <command> --region=aws:us-east-1
 ```
 
 #### Permissions
@@ -97,7 +97,7 @@ The credentials file will be parsed by cockroach-prod to configure the AWS clien
 
 Pick a region from the [list](https://cloud.google.com/compute/docs/zones#available) (eg: `us-central1`) and invoke using:
 ```console
-$ cockroach-prod <command> --driver=gce:us-central1
+$ cockroach-prod <command> --region=gce:us-central1
 ```
 
 #### Permissions

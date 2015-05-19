@@ -330,6 +330,4 @@ func (g *Google) waitForOperation(op *compute.Operation) error {
 		}
 		time.Sleep(time.Second)
 	}
-
-	return nil
 }

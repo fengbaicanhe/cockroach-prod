@@ -47,7 +47,7 @@ import (
 	"strings"
 	"time"
 
-	"code.google.com/p/goauth2/oauth"
+	"code.google.com/p/goauth2/oauth" // Deprecated. TODO: replace with golang.org/x/oauth2
 	"github.com/cockroachdb/cockroach/util/log"
 	compute "google.golang.org/api/compute/v1"
 )
@@ -80,12 +80,11 @@ func (f gobCache) Token() (*oauth.Token, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
 	tok := &oauth.Token{}
 	if err = gob.NewDecoder(file).Decode(tok); err != nil {
 		return nil, err
 	}
-	return tok, nil
+	return tok, file.Close()
 }
 
 // PutToken stores the given token in the cache.
@@ -103,13 +102,17 @@ func (f gobCache) PutToken(tok *oauth.Token) error {
 	if err != nil {
 		return err
 	}
-	if err := gob.NewEncoder(file).Encode(tok); err != nil {
-		file.Close()
-		return err
+	encErr := gob.NewEncoder(file).Encode(tok)
+	clErr := file.Close()
+
+	if encErr != nil {
+		return encErr
 	}
-	if err := file.Close(); err != nil {
-		return err
+
+	if clErr != nil {
+		return clErr
 	}
+
 	return nil
 }
 

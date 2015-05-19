@@ -1,0 +1,21 @@
+github.com/cockroachdb/cockroach-prod !self
+code.google.com/p/goauth2/oauth
+github.com/awslabs/aws-sdk-go/aws
+github.com/awslabs/aws-sdk-go/service/ec2
+github.com/awslabs/aws-sdk-go/service/elb
+github.com/cockroachdb/clog
+github.com/cockroachdb/cockroach/util
+github.com/ghemawat/stream
+github.com/gogo/protobuf/proto
+github.com/inconshreveable/mousetrap
+github.com/spf13/cobra
+github.com/spf13/pflag
+golang.org/x/net/context
+google.golang.org/api/compute/v1
+google.golang.org/api/googleapi
+google.golang.org/api/resourceviews/v1beta2
+gopkg.in/yaml.v1
+github.com/kisielk/errcheck
+github.com/barakmich/go-nyet
+github.com/golang/lint/golint
+golang.org/x/tools/cmd/goimports

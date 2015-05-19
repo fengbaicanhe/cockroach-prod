@@ -3,6 +3,9 @@
 *.a
 *.so
 
+# bunch
+.vendor
+
 # Binaries
 cockroach-prod
 

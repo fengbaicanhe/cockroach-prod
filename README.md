@@ -71,7 +71,7 @@ Creating a cockroach cluster with 3 nodes is done as follows:
 #### Prerequisites
 
 * AWS account
-* AWS credentials in `~/.aws/credentials` or environment variables. See [AWS cli configuration](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-config-files) 
+* AWS credentials in `~/.aws/credentials` or environment variables. See [AWS cli configuration](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-config-files)
 
 #### Driver
 
@@ -103,3 +103,9 @@ $ cockroach-prod <command> --region=gce:us-central1
 #### Permissions
 
 You will be prompted for oauth tokens granting permissions to cockroach-prod. The token is then shared with docker-machine.
+
+## Contributing
+
+This project uses [bunch](https://github.com/dkulchenko/bunch) to manage its dependencies. Most of these details are handled in our Makefile. That said, changing dependencies requires special care:
+* If you wish to add a new dependency, run `bunch install --save <dep>` and commit the change to `Bunchfile.lock`
+* If you wish to update existing dependencies, run `bunch update [dep] && bunch lock` and commit the change to `Bunchfile.lock`

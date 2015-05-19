@@ -19,3 +19,4 @@ github.com/kisielk/errcheck
 github.com/barakmich/go-nyet
 github.com/golang/lint/golint
 golang.org/x/tools/cmd/goimports
+github.com/dkulchenko/bunch

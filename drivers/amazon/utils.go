@@ -17,7 +17,10 @@
 
 package amazon
 
-import "github.com/awslabs/aws-sdk-go/aws"
+import (
+	"github.com/awslabs/aws-sdk-go/aws"
+	"github.com/awslabs/aws-sdk-go/aws/awserr"
+)
 
 // LoadAWSCredentials loads the credentials using the AWS api. This automatically
 // loads from ENV, or from the .aws/credentials file.
@@ -29,4 +32,22 @@ func LoadAWSCredentials() (string, string, error) {
 	}
 
 	return creds.AccessKeyID, creds.SecretAccessKey, nil
+}
+
+// IsAWSErrorCode takes a AWS error code string (eg: InvalidPermission.Duplicate)
+// and returns true if the given error matches.
+// Returns false on any of the following conditions:
+// - err is nil
+// - err does not implement awserr.Error
+// - err.Code() does not match
+func IsAWSErrorCode(err error, code string) bool {
+	if err == nil {
+		return false
+	}
+	awsErr, ok := err.(awserr.Error)
+	if !ok {
+		return false
+	}
+
+	return awsErr.Code() == code
 }

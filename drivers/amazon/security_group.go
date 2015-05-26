@@ -66,11 +66,8 @@ func AddCockroachSecurityGroupIngress(region string, cockroachPort int64, securi
 		GroupID:    aws.String(securityGroupID),
 	})
 
-	if err != nil {
-		if awserr := aws.Error(err); awserr != nil && awserr.Code == awsSecurityRuleDuplicateError {
-			return nil
-		}
+	if IsAWSErrorCode(err, awsSecurityRuleDuplicateError) {
+		return nil
 	}
-
 	return err
 }

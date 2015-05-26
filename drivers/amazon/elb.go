@@ -40,10 +40,10 @@ func FindCockroachELB(region string) (string, error) {
 		},
 	})
 
+	if IsAWSErrorCode(err, awsELBNotFoundError) {
+		return "", nil
+	}
 	if err != nil {
-		if awserr := aws.Error(err); awserr != nil && awserr.Code == awsELBNotFoundError {
-			return "", nil
-		}
 		return "", err
 	}
 

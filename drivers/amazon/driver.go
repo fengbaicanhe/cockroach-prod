@@ -137,7 +137,7 @@ func (a *Amazon) PrintStatus() {
 	} else if dnsName == "" {
 		fmt.Println("Load balancer: not found (you need to initialize the cluster)")
 	} else {
-		fmt.Println("Load balancer:", dnsName)
+		fmt.Printf("Load balancer: %s:%d\n", dnsName, a.context.Port)
 	}
 
 	securityGroupID, err := FindSecurityGroup(a.region)

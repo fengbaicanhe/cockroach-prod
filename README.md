@@ -46,7 +46,7 @@ Creating a cockroach cluster with 3 nodes is done as follows:
 4. Client connections
   * specify the load balancer address (as displayed by cockroach-prod status)
   ```console
-  $ cockroach kv scan --addr=<load balancer address>
+  $ cockroach kv scan --insecure --addr=<load balancer address>
   ```
 
 
